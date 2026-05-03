@@ -1,0 +1,181 @@
+<div class="search-page aes-fade-in">
+  <!-- Toolbar -->
+  <div class="search-toolbar">
+    <div class="search-bar">
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-icon matPrefix>search</mat-icon>
+        <input matInput [(ngModel)]="query"
+               (input)="onSearch()"
+               placeholder="Search agents, workflows, tools, KBs, guardrails..." />
+        @if (query) {
+          <button mat-icon-button matSuffix (click)="query = ''; onSearch()">
+            <mat-icon>close</mat-icon>
+          </button>
+        }
+      </mat-form-field>
+    </div>
+    <div class="search-filters">
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-select [(ngModel)]="typeFilter" (selectionChange)="onSearch()">
+          @for (t of artifactTypes; track t.value) {
+            <mat-option [value]="t.value">{{ t.label }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-select [(ngModel)]="statusFilter" (selectionChange)="onSearch()">
+          <mat-option value="ALL">All Statuses</mat-option>
+          <mat-option value="APPROVED">Approved</mat-option>
+          <mat-option value="IN_REVIEW">In Review</mat-option>
+          <mat-option value="CREATED">Draft</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+  </div>
+
+  <!-- Stats bar -->
+  <div class="stats-bar">
+    <span class="result-count">
+      @if (loading()) { Searching... }
+      @else { {{ filtered.length }} artifacts @if (query) { matching "{{ query }}" } }
+    </span>
+    <div class="type-counts">
+      @for (type of artifactTypes.slice(1); track type.value) {
+        <span class="type-count-chip"
+              [class]="'type-count-chip-' + type.value.toLowerCase()"
+              (click)="typeFilter = type.value; onSearch()">
+          {{ filtered | typeCount: type.value }} {{ type.label }}
+        </span>
+      }
+    </div>
+  </div>
+
+  <!-- Loading bar -->
+  @if (loading()) {
+    <mat-progress-bar mode="indeterminate" class="search-progress" />
+  }
+
+  <!-- Results table -->
+  <div class="results-container">
+    @if (!loading() && filtered.length === 0) {
+      <div class="aes-empty">
+        <mat-icon>search_off</mat-icon>
+        <p>No artifacts found. Try adjusting your search or filters.</p>
+      </div>
+    } @else {
+      <table mat-table [dataSource]="filtered" class="artifacts-table">
+        <!-- Favorite -->
+        <ng-container matColumnDef="favorite">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let row">
+            <button mat-icon-button class="fav-btn"
+                    [class.favorited]="isFavorite(row)"
+                    (click)="toggleFavorite(row)"
+                    [matTooltip]="isFavorite(row) ? 'Remove from favorites' : 'Add to favorites'">
+              <mat-icon>{{ isFavorite(row) ? 'star' : 'star_border' }}</mat-icon>
+            </button>
+          </td>
+        </ng-container>
+
+        <!-- Name -->
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef (click)="setSort('name')" class="sortable-header">
+            Name
+            @if (sortField() === 'name') {
+              <mat-icon class="sort-icon">{{ sortDir() === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+            }
+          </th>
+          <td mat-cell *matCellDef="let row">
+            <div class="artifact-name-cell">
+              <mat-icon class="artifact-icon" [class]="'icon-' + row.type.toLowerCase()">
+                {{ typeIcon(row.type) }}
+              </mat-icon>
+              <div>
+                <div class="artifact-name">{{ row.name }}</div>
+                @if (row.description) {
+                  <div class="artifact-desc">{{ row.description | slice:0:80 }}{{ row.description.length > 80 ? '...' : '' }}</div>
+                }
+              </div>
+            </div>
+          </td>
+        </ng-container>
+
+        <!-- Type -->
+        <ng-container matColumnDef="type">
+          <th mat-header-cell *matHeaderCellDef (click)="setSort('type')" class="sortable-header">Type</th>
+          <td mat-cell *matCellDef="let row">
+            <span class="aes-type-chip {{ typeChipClass(row.type) }}">
+              {{ row.type }}
+            </span>
+          </td>
+        </ng-container>
+
+        <!-- Status -->
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef (click)="setSort('status')" class="sortable-header">Status</th>
+          <td mat-cell *matCellDef="let row">
+            <span class="aes-badge {{ row.status?.toLowerCase() }}">{{ row.status }}</span>
+          </td>
+        </ng-container>
+
+        <!-- Created -->
+        <ng-container matColumnDef="createdAt">
+          <th mat-header-cell *matHeaderCellDef (click)="setSort('createdAt')" class="sortable-header">
+            Created
+            @if (sortField() === 'createdAt') {
+              <mat-icon class="sort-icon">{{ sortDir() === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+            }
+          </th>
+          <td mat-cell *matCellDef="let row">
+            <span class="date-cell" [matTooltip]="(row.createdAt | date:'medium') ?? ''">
+              {{ row.createdAt | date:'MMM d, y' }}
+            </span>
+          </td>
+        </ng-container>
+
+        <!-- Actions -->
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let row">
+            <div class="row-actions">
+              @if (row.type === 'WORKFLOW') {
+                <button mat-icon-button class="action-run"
+                        matTooltip="Run this workflow"
+                        (click)="executeWorkflow(row)">
+                  <mat-icon>play_circle</mat-icon>
+                </button>
+              }
+              <button mat-icon-button class="action-btn"
+                      matTooltip="Clone artifact"
+                      (click)="cloneArtifact(row)">
+                <mat-icon>content_copy</mat-icon>
+              </button>
+              <button mat-icon-button class="action-btn"
+                      [matMenuTriggerFor]="rowMenu">
+                <mat-icon>more_vert</mat-icon>
+              </button>
+              <mat-menu #rowMenu="matMenu">
+                <button mat-menu-item (click)="toggleFavorite(row)">
+                  <mat-icon>{{ isFavorite(row) ? 'star' : 'star_border' }}</mat-icon>
+                  {{ isFavorite(row) ? 'Remove from favorites' : 'Add to favorites' }}
+                </button>
+                <button mat-menu-item (click)="cloneArtifact(row)">
+                  <mat-icon>content_copy</mat-icon> Clone
+                </button>
+                @if (row.type === 'WORKFLOW') {
+                  <button mat-menu-item (click)="executeWorkflow(row)">
+                    <mat-icon>play_circle</mat-icon> Execute
+                  </button>
+                }
+              </mat-menu>
+            </div>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="artifact-row"></tr>
+      </table>
+    }
+  </div>
+</div>

@@ -1,0 +1,153 @@
+<div class="projects-page aes-fade-in">
+  <div class="projects-layout">
+
+    <!-- Left: Projects -->
+    <div class="projects-col">
+      <div class="col-header">
+        <div class="col-title">
+          <mat-icon>folder_open</mat-icon>
+          <span>Projects</span>
+          <span class="count-badge">{{ projects().length }}</span>
+        </div>
+        <button mat-icon-button (click)="showNewProject.set(!showNewProject())"
+                matTooltip="New project">
+          <mat-icon>add</mat-icon>
+        </button>
+      </div>
+
+      @if (showNewProject()) {
+        <div class="new-item-form aes-fade-in">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Project Name</mat-label>
+            <input matInput [(ngModel)]="newProjectName" placeholder="e.g. Vista PostAcq 2026" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Description (optional)</mat-label>
+            <input matInput [(ngModel)]="newProjectDesc" />
+          </mat-form-field>
+          <div class="form-actions">
+            <button mat-flat-button color="primary" (click)="createProject()" [disabled]="!newProjectName()">
+              Create
+            </button>
+            <button mat-stroked-button (click)="showNewProject.set(false)">Cancel</button>
+          </div>
+        </div>
+      }
+
+      @if (projects().length === 0) {
+        <div class="aes-empty">
+          <mat-icon>folder_open</mat-icon>
+          <p>No projects yet. Create your first project to organize your pipelines and use cases.</p>
+        </div>
+      } @else {
+        <mat-accordion class="projects-accordion" multi>
+          @for (project of projects(); track project.id) {
+            <mat-expansion-panel class="project-panel">
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <div class="project-header-inner">
+                    <mat-icon class="project-icon">folder</mat-icon>
+                    <span class="project-name">{{ project.name }}</span>
+                    <span class="uc-count">{{ project.useCases.length }} use cases</span>
+                  </div>
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+
+              @if (project.description) {
+                <div class="project-desc">{{ project.description }}</div>
+              }
+
+              <!-- Use cases list -->
+              <div class="use-cases">
+                @for (uc of project.useCases; track uc.id) {
+                  <div class="use-case-item">
+                    <div class="uc-info">
+                      <mat-icon>hub</mat-icon>
+                      <div>
+                        <div class="uc-name">{{ uc.name }}</div>
+                        @if (uc.description) {
+                          <div class="uc-desc">{{ uc.description }}</div>
+                        }
+                      </div>
+                    </div>
+                    <button mat-icon-button class="remove-btn"
+                            (click)="removeUseCase(project.id, uc.id, uc.name)"
+                            matTooltip="Remove use case">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  </div>
+                }
+
+                @if (addingToProject() === project.id) {
+                  <div class="new-uc-form aes-fade-in">
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>Use Case Name</mat-label>
+                      <input matInput [(ngModel)]="newUCName"
+                             placeholder="e.g. Q1 Portfolio Review" />
+                    </mat-form-field>
+                    <div class="form-actions">
+                      <button mat-flat-button color="primary"
+                              (click)="addUseCase(project.id)"
+                              [disabled]="!newUCName()">Add</button>
+                      <button mat-stroked-button (click)="addingToProject.set(null)">Cancel</button>
+                    </div>
+                  </div>
+                } @else {
+                  <button mat-stroked-button class="add-uc-btn"
+                          (click)="startAddUseCase(project.id)">
+                    <mat-icon>add</mat-icon> Add Use Case
+                  </button>
+                }
+              </div>
+
+              <mat-action-row>
+                <button mat-button color="warn" (click)="deleteProject(project.id, project.name)">
+                  <mat-icon>delete_outline</mat-icon> Delete Project
+                </button>
+              </mat-action-row>
+            </mat-expansion-panel>
+          }
+        </mat-accordion>
+      }
+    </div>
+
+    <!-- Right: Favorites -->
+    <div class="favorites-col">
+      <div class="col-header">
+        <div class="col-title">
+          <mat-icon>star</mat-icon>
+          <span>Starred Artifacts</span>
+          <span class="count-badge">{{ favorites().length }}</span>
+        </div>
+      </div>
+
+      @if (favorites().length === 0) {
+        <div class="aes-empty">
+          <mat-icon>star_border</mat-icon>
+          <p>Star artifacts from the Search page to pin them here for quick access.</p>
+        </div>
+      } @else {
+        <div class="favorites-list">
+          @for (fav of favorites(); track fav.artifactId) {
+            <div class="fav-row">
+              <mat-icon class="fav-star">star</mat-icon>
+              <div class="fav-info">
+                <div class="fav-name">{{ fav.name }}</div>
+                <div class="fav-meta">
+                  {{ fav.addedAt | date:'MMM d, y' }}
+                </div>
+              </div>
+              <span class="aes-type-chip {{ typeChipClass(fav.type) }}">{{ fav.type }}</span>
+              <button mat-icon-button class="remove-btn"
+                      (click)="removeFavorite(fav.artifactId, fav.type, fav.name)"
+                      matTooltip="Remove from favorites">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+  </div>
+</div>

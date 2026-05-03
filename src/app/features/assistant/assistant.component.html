@@ -1,0 +1,64 @@
+<div class="assistant-page">
+  <div class="chat-layout">
+
+    <!-- Messages -->
+    <div class="messages-pane">
+      @for (msg of messages(); track $index) {
+        <div class="message" [class]="'message--' + msg.role + ' aes-fade-in'">
+          <div class="msg-avatar">
+            @if (msg.role === 'assistant') {
+              <mat-icon>smart_toy</mat-icon>
+            } @else {
+              <mat-icon>person</mat-icon>
+            }
+          </div>
+          <div class="msg-bubble">
+            @if (msg.loading) {
+              <div class="typing-indicator">
+                <span></span><span></span><span></span>
+              </div>
+            } @else {
+              <div class="msg-content" [innerHTML]="msg.content | markdownToHtml"></div>
+              <div class="msg-time">{{ msg.timestamp | date:'h:mm a' }}</div>
+            }
+          </div>
+        </div>
+      }
+      <div #messagesEnd></div>
+    </div>
+
+    <!-- Suggestions -->
+    @if (messages().length <= 1) {
+      <div class="suggestions aes-fade-in">
+        @for (s of suggestions; track s) {
+          <button class="suggestion-chip" (click)="send(s)">{{ s }}</button>
+        }
+      </div>
+    }
+
+    <!-- Input -->
+    <div class="input-area">
+      <div class="input-row">
+        <mat-form-field appearance="outline" class="message-field">
+          <input matInput [(ngModel)]="input"
+                 placeholder="Ask about agents, workflows, pipelines, or AAVA..."
+                 (keyup.enter)="send()"
+                 [disabled]="thinking()" />
+        </mat-form-field>
+        <button mat-flat-button color="primary" class="send-btn"
+                [disabled]="!input() || thinking()"
+                (click)="send()">
+          @if (thinking()) {
+            <mat-spinner diameter="18" />
+          } @else {
+            <mat-icon>send</mat-icon>
+          }
+        </button>
+      </div>
+      <div class="input-hint">
+        Powered by AAVA Revelio · Knowledge current as of May 2026
+      </div>
+    </div>
+
+  </div>
+</div>

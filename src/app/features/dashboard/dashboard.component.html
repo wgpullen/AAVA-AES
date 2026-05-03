@@ -1,0 +1,60 @@
+<div class="dashboard aes-fade-in">
+
+  <!-- Welcome -->
+  <div class="welcome-bar">
+    <div class="welcome-text">
+      <h2>Welcome back, {{ auth.user()?.name ?? 'Studio User' }} 👋</h2>
+      <p>Your AAVA platform at a glance — realm {{ auth.realm() }}</p>
+    </div>
+    <a mat-flat-button color="primary" routerLink="/studio/builder">
+      <mat-icon>auto_awesome</mat-icon> Build Pipeline
+    </a>
+  </div>
+
+  <!-- Stats -->
+  @if (loading()) {
+    <div class="loading-stats">
+      <mat-spinner diameter="36" />
+    </div>
+  } @else {
+    <div class="stats-grid">
+      @for (stat of stats(); track stat.label) {
+        <a class="stat-card" [routerLink]="stat.route">
+          <div class="stat-icon" [style.color]="stat.color" [style.background]="stat.color + '22'">
+            <mat-icon>{{ stat.icon }}</mat-icon>
+          </div>
+          <div class="stat-body">
+            <div class="stat-value">{{ stat.value }}</div>
+            <div class="stat-label">{{ stat.label }}</div>
+          </div>
+        </a>
+      }
+    </div>
+  }
+
+  <!-- Quick links -->
+  <div class="section-title">Quick Actions</div>
+  <div class="quick-links">
+    @for (link of quickLinks; track link.label) {
+      <a class="quick-link" [routerLink]="link.route">
+        <mat-icon [style.color]="link.color">{{ link.icon }}</mat-icon>
+        <span>{{ link.label }}</span>
+      </a>
+    }
+  </div>
+
+  <!-- Favorites -->
+  @if (favorites().length) {
+    <div class="section-title">Starred Artifacts</div>
+    <div class="favorites-list">
+      @for (fav of favorites().slice(0, 8); track fav.artifactId) {
+        <div class="fav-item">
+          <mat-icon class="fav-icon">star</mat-icon>
+          <div class="fav-name">{{ fav.name }}</div>
+          <span class="aes-type-chip {{ fav.type.toLowerCase() }}">{{ fav.type }}</span>
+        </div>
+      }
+    </div>
+  }
+
+</div>

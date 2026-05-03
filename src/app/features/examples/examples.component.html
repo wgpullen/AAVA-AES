@@ -1,0 +1,81 @@
+<div class="examples-page aes-fade-in">
+  <div class="page-header">
+    <div class="page-title-block">
+      <h3>Example Runs</h3>
+      <p>Completed workflow executions — click to explore agent outputs and final results</p>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <div class="loading-center">
+      <mat-spinner diameter="36" />
+    </div>
+  } @else if (!examples().length) {
+    <div class="aes-empty">
+      <mat-icon>history</mat-icon>
+      <p>No completed workflow executions yet. Run a workflow from the Execute page to see results here.</p>
+    </div>
+  } @else {
+    <mat-accordion class="examples-accordion" multi>
+      @for (run of examples(); track run.id) {
+        <mat-expansion-panel class="example-panel"
+                             (opened)="loadDetails(run)">
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              <div class="run-title-row">
+                <mat-icon class="run-status-icon status-completed">check_circle</mat-icon>
+                <div class="run-info">
+                  <div class="run-name">{{ run.workflowName }}</div>
+                  <div class="run-meta-row">
+                    <span class="run-date">{{ run.startedAt | date:'MMM d, y · h:mm a' }}</span>
+                    @if (duration(run)) {
+                      <span class="run-duration">· {{ duration(run) }}</span>
+                    }
+                    @if (run.agentCount) {
+                      <span class="run-agents">· {{ run.agentCount }} agents</span>
+                    }
+                  </div>
+                </div>
+                <span class="aes-badge approved">COMPLETED</span>
+              </div>
+            </mat-panel-title>
+          </mat-expansion-panel-header>
+
+          <div class="run-detail">
+            <!-- Agent outputs -->
+            @if (run.outputs.length) {
+              <div class="agent-outputs">
+                @for (out of run.outputs; track out.agentName; let i = $index) {
+                  <div class="agent-output-row">
+                    <div class="ao-header">
+                      <div class="ao-serial">{{ i + 1 }}</div>
+                      <div class="ao-name">{{ out.agentName }}</div>
+                      <mat-icon class="ao-status">check_circle</mat-icon>
+                    </div>
+                    <div class="ao-preview">{{ out.preview }}</div>
+                  </div>
+                }
+              </div>
+            } @else {
+              <div class="loading-center">
+                <mat-spinner diameter="24" />
+                <span>Loading outputs...</span>
+              </div>
+            }
+
+            <!-- Final output -->
+            @if (run.finalOutput) {
+              <div class="final-output-block">
+                <div class="final-output-label">
+                  <mat-icon>article</mat-icon>
+                  Final Output
+                </div>
+                <pre class="final-output-content">{{ run.finalOutput }}</pre>
+              </div>
+            }
+          </div>
+        </mat-expansion-panel>
+      }
+    </mat-accordion>
+  }
+</div>

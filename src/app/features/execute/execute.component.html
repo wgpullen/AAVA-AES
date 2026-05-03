@@ -1,0 +1,167 @@
+<div class="execute-page aes-fade-in">
+  <div class="execute-layout">
+
+    <!-- Left panel: Config -->
+    <div class="config-panel">
+      <div class="panel-header">
+        <mat-icon>settings</mat-icon>
+        <span>Execution Setup</span>
+      </div>
+
+      <div class="config-body">
+        <!-- Workflow select -->
+        <div class="config-section">
+          <div class="section-label">Workflow</div>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-select [(ngModel)]="selectedWorkflow" placeholder="Select a workflow">
+              @for (wf of workflows(); track wf.id) {
+                <mat-option [value]="wf.id">{{ wf.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          @if (!workflows().length) {
+            <button mat-stroked-button class="load-btn" (click)="loadWorkflows()">
+              @if (loadingWorkflows()) { <mat-spinner diameter="16" /> }
+              @else { <mat-icon>refresh</mat-icon> }
+              Load Workflows
+            </button>
+          }
+        </div>
+
+        <!-- User input -->
+        <div class="config-section">
+          <div class="section-label">Input Text <span class="optional">(optional)</span></div>
+          <mat-form-field appearance="outline" class="full-width">
+            <textarea matInput [(ngModel)]="inputText" rows="4"
+                      placeholder="Enter context, instructions, or problem statement for this run..."></textarea>
+          </mat-form-field>
+        </div>
+
+        <!-- File upload -->
+        <div class="config-section">
+          <div class="section-label">Input File <span class="optional">(optional)</span></div>
+          <div class="file-drop" (click)="fileInput.click()">
+            @if (selectedFile) {
+              <mat-icon>description</mat-icon>
+              <span>{{ selectedFile!.name }}</span>
+              <span class="file-size">{{ (selectedFile!.size / 1024).toFixed(1) }} KB</span>
+            } @else {
+              <mat-icon>cloud_upload</mat-icon>
+              <span>Click to upload file (zip, pdf, txt, md)</span>
+            }
+          </div>
+          <input #fileInput type="file" class="hidden" (change)="onFileSelected($event)"
+                 accept=".zip,.pdf,.txt,.md,.csv,.json" />
+        </div>
+
+        <!-- Run button -->
+        <button mat-flat-button color="primary" class="run-btn"
+                [disabled]="!canRun()"
+                (click)="run$()">
+          @if (isRunning()) {
+            <mat-spinner diameter="18" />
+            Executing...
+          } @else {
+            <mat-icon>electric_bolt</mat-icon>
+            Execute Workflow
+          }
+        </button>
+
+        @if (run() && !isRunning()) {
+          <button mat-stroked-button class="reset-btn" (click)="reset()">
+            <mat-icon>refresh</mat-icon> New Run
+          </button>
+        }
+      </div>
+    </div>
+
+    <!-- Right panel: Live progress -->
+    <div class="progress-panel">
+      @if (!run()) {
+        <div class="aes-empty">
+          <mat-icon>play_circle_outline</mat-icon>
+          <p>Configure a workflow on the left and click Execute to watch your agents work in real time.</p>
+        </div>
+      } @else {
+        <!-- Run header -->
+        <div class="run-header">
+          <div class="run-title">
+            <mat-icon [class]="'status-icon status-' + run()!.status.toLowerCase()">
+              {{ run()!.status === ExecutionStatus.RUNNING ? 'pending' :
+                 run()!.status === ExecutionStatus.COMPLETED ? 'check_circle' : 'error' }}
+            </mat-icon>
+            <div>
+              <div class="run-name">{{ run()!.workflowName }}</div>
+              <div class="run-meta">
+                <span class="aes-badge {{ run()!.status.toLowerCase() }}">{{ run()!.status }}</span>
+                <span class="run-time">{{ elapsedTime() }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="overall-progress">
+            <div class="progress-pct">{{ overallProgress() }}%</div>
+            <mat-progress-bar mode="determinate" [value]="overallProgress()"
+                              [class.completed]="run()!.status === ExecutionStatus.COMPLETED" />
+          </div>
+        </div>
+
+        <!-- Agent pipeline -->
+        <div class="agent-pipeline">
+          @for (agent of agents(); track agent.index; let i = $index) {
+            <div class="agent-card" [class]="'agent-card--' + agent.status">
+              <div class="agent-card-left">
+                <div class="agent-step">{{ i + 1 }}</div>
+                @if (i < agents().length - 1) {
+                  <div class="agent-connector" [class.done]="agent.status === 'done'"></div>
+                }
+              </div>
+              <div class="agent-card-body">
+                <div class="agent-card-header">
+                  <div class="agent-card-name">{{ agent.name }}</div>
+                  <mat-icon class="agent-status-icon" [class]="'status-icon--' + agent.status">
+                    {{ agentStatusIcon(agent.status) }}
+                  </mat-icon>
+                </div>
+
+                @if (agent.status === 'running') {
+                  <mat-progress-bar mode="indeterminate" class="agent-progress" />
+                  <div class="agent-running-label">Processing...</div>
+                }
+
+                @if (agent.status === 'done' && agent.completedAt) {
+                  <div class="agent-done-label">
+                    Completed in {{ ((agent.completedAt.getTime() - (agent.startedAt?.getTime() ?? agent.completedAt.getTime())) / 1000).toFixed(1) }}s
+                  </div>
+                }
+
+                @if (agent.error) {
+                  <div class="agent-error">{{ agent.error }}</div>
+                }
+
+                @if (agent.output && agent.status === 'done') {
+                  <details class="agent-output-details">
+                    <summary>View output</summary>
+                    <div class="agent-output">{{ agent.output | slice:0:500 }}{{ (agent.output?.length ?? 0) > 500 ? '...' : '' }}</div>
+                  </details>
+                }
+              </div>
+            </div>
+          }
+        </div>
+
+        <!-- Final result -->
+        @if (showResults() && finalOutput()) {
+          <div class="results-section aes-fade-in">
+            <div class="results-header">
+              <mat-icon>article</mat-icon>
+              Final Output
+            </div>
+            <div class="results-body">
+              <pre class="results-content">{{ finalOutput() }}</pre>
+            </div>
+          </div>
+        }
+      }
+    </div>
+  </div>
+</div>

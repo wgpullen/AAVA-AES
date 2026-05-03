@@ -1,0 +1,216 @@
+<div class="builder-page aes-fade-in">
+
+  <!-- Step: Input -->
+  @if (step() === 'input') {
+    <div class="builder-input-view">
+      <div class="builder-hero">
+        <div class="hero-icon">🧬</div>
+        <h2>AI Pipeline Builder</h2>
+        <p>Describe your use case and AES will auto-design a complete multi-agent pipeline —
+           Knowledge Bases, Guardrails, Agents, and Workflow — ready to execute.</p>
+      </div>
+
+      <div class="input-card">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Problem Statement / Use Case</mat-label>
+          <mat-icon matPrefix>lightbulb</mat-icon>
+          <textarea matInput [(ngModel)]="problem" rows="4"
+                    placeholder="e.g. Analyze Ruby codebase and generate Spring Boot migration with unit tests
+e.g. Create a financial performance report from Q4 earnings data
+e.g. Build a compliance review pipeline for insurance policy documents"></textarea>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Industry / Domain (optional)</mat-label>
+          <mat-icon matPrefix>domain</mat-icon>
+          <input matInput [(ngModel)]="industry" placeholder="e.g. Financial Services, Healthcare, Technology" />
+        </mat-form-field>
+
+        <div class="examples-row">
+          <span class="examples-label">Try an example:</span>
+          <button mat-stroked-button class="example-chip"
+                  (click)="problem.set('Modernize Ruby on Rails application to Spring Boot microservices'); industry.set('Technology')">
+            Ruby → Spring Boot
+          </button>
+          <button mat-stroked-button class="example-chip"
+                  (click)="problem.set('Analyze post-acquisition integration opportunities for portfolio company'); industry.set('Private Equity')">
+            PE Portfolio Analysis
+          </button>
+          <button mat-stroked-button class="example-chip"
+                  (click)="problem.set('Generate compliance review report for financial regulations'); industry.set('Banking')">
+            Compliance Review
+          </button>
+        </div>
+
+        <button mat-flat-button color="primary" class="generate-btn"
+                [disabled]="!problem() || generating()"
+                (click)="generatePlan()">
+          @if (generating()) {
+            <mat-spinner diameter="18" />
+            Designing your pipeline...
+          } @else {
+            <mat-icon>auto_awesome</mat-icon>
+            Generate Pipeline Plan
+          }
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- Step: Plan -->
+  @if (step() === 'plan') {
+    <div class="builder-plan-view aes-fade-in">
+      <div class="plan-header">
+        <div class="plan-title">
+          <mat-icon>account_tree</mat-icon>
+          <div>
+            <div class="plan-name">{{ plan()!.workflowName }}</div>
+            <div class="plan-meta">{{ plan()!.agents.length }} agents · AI-designed pipeline</div>
+          </div>
+        </div>
+        <div class="plan-actions">
+          <button mat-stroked-button (click)="step.set('input')">
+            <mat-icon>arrow_back</mat-icon> Revise Input
+          </button>
+          <button mat-flat-button color="primary" (click)="buildPipeline()" [disabled]="building()">
+            <mat-icon>rocket_launch</mat-icon>
+            Build Pipeline
+          </button>
+        </div>
+      </div>
+
+      <!-- Auto-approve toggle -->
+      <div class="plan-options">
+        <mat-checkbox [(ngModel)]="autoApprove" color="primary">
+          Auto-approve all artifacts (Super Admin)
+        </mat-checkbox>
+      </div>
+
+      <!-- Agent cards -->
+      <div class="agents-grid">
+        @for (agent of plan()!.agents; track agent; let i = $index) {
+          <div class="agent-plan-card">
+            <div class="agent-plan-header">
+              <div class="agent-serial">{{ i + 1 }}</div>
+              <mat-form-field appearance="outline" class="agent-name-field">
+                <input matInput [(ngModel)]="agent.name"
+                       (ngModelChange)="updateAgent(i, 'name', $event)" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="engine-field">
+                <mat-select [(ngModel)]="agent.modelId"
+                            (selectionChange)="updateAgent(i, 'modelId', $event.value)">
+                  @for (m of models; track m.id) {
+                    <mat-option [value]="m.id">{{ m.label }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <button mat-icon-button class="remove-btn" (click)="removeAgent(i)" matTooltip="Remove agent">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+            <div class="agent-plan-body">
+              <div class="field-group">
+                <label>Role</label>
+                <mat-form-field appearance="outline" class="full-width">
+                  <input matInput [(ngModel)]="agent.role" (ngModelChange)="updateAgent(i, 'role', $event)" />
+                </mat-form-field>
+              </div>
+              <div class="field-group">
+                <label>Goal</label>
+                <mat-form-field appearance="outline" class="full-width">
+                  <input matInput [(ngModel)]="agent.goal" (ngModelChange)="updateAgent(i, 'goal', $event)" />
+                </mat-form-field>
+              </div>
+              <div class="field-group">
+                <label>Instructions (description)</label>
+                <mat-form-field appearance="outline" class="full-width">
+                  <textarea matInput rows="3" [(ngModel)]="agent.description"
+                            (ngModelChange)="updateAgent(i, 'description', $event)"></textarea>
+                </mat-form-field>
+              </div>
+              <div class="field-group">
+                <label>Expected Output</label>
+                <mat-form-field appearance="outline" class="full-width">
+                  <input matInput [(ngModel)]="agent.expectedOutput"
+                         (ngModelChange)="updateAgent(i, 'expectedOutput', $event)" />
+                </mat-form-field>
+              </div>
+            </div>
+          </div>
+        }
+
+        <button mat-stroked-button class="add-agent-btn" (click)="addAgent()">
+          <mat-icon>add</mat-icon> Add Agent
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- Step: Build (in progress) -->
+  @if (step() === 'build') {
+    <div class="builder-build-view aes-fade-in">
+      <div class="build-header">
+        <mat-spinner diameter="32" />
+        <div>
+          <div class="build-title">Building Pipeline...</div>
+          <div class="build-subtitle">Creating agents, approving artifacts, assembling workflow</div>
+        </div>
+      </div>
+
+      <mat-progress-bar mode="determinate" [value]="buildProgress()" class="build-progress" />
+      <div class="build-pct">{{ buildProgress() }}% complete</div>
+
+      <div class="build-steps">
+        @for (agent of plan()!.agents; track agent; let i = $index) {
+          <div class="build-step" [class]="'build-step--' + (agentStatuses()[i] ?? 'pending')">
+            <mat-icon>
+              {{ agentStatuses()[i] === 'approved' ? 'check_circle' :
+                 agentStatuses()[i] === 'creating' ? 'pending' :
+                 agentStatuses()[i] === 'error'    ? 'error' : 'radio_button_unchecked' }}
+            </mat-icon>
+            <span>{{ agent.name }}</span>
+            <span class="build-step-status">{{ agentStatuses()[i] ?? 'pending' }}</span>
+          </div>
+        }
+        <div class="build-step" [class]="buildProgress() === 100 ? 'build-step--approved' : 'build-step--pending'">
+          <mat-icon>{{ buildProgress() === 100 ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+          <span>Workflow Assembly</span>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Step: Done -->
+  @if (step() === 'done') {
+    <div class="builder-done-view aes-fade-in">
+      <div class="done-icon">🚀</div>
+      <h3>Pipeline Built Successfully!</h3>
+      <p>Your {{ plan()!.agents.length }}-agent workflow is live and ready to execute.</p>
+
+      <div class="done-summary">
+        <div class="done-stat">
+          <span class="done-stat-value">{{ plan()!.agents.length }}</span>
+          <span class="done-stat-label">Agents Created</span>
+        </div>
+        <div class="done-stat">
+          <span class="done-stat-value">1</span>
+          <span class="done-stat-label">Workflow</span>
+        </div>
+        <div class="done-stat">
+          <span class="done-stat-value">{{ autoApprove ? 'APPROVED' : 'CREATED' }}</span>
+          <span class="done-stat-label">Status</span>
+        </div>
+      </div>
+
+      <div class="done-actions">
+        <a mat-flat-button color="primary" routerLink="/studio/execute">
+          <mat-icon>play_circle</mat-icon> Execute Now
+        </a>
+        <button mat-stroked-button (click)="reset()">
+          <mat-icon>add</mat-icon> Build Another
+        </button>
+      </div>
+    </div>
+  }
+
+</div>

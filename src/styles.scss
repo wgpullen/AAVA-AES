@@ -1,0 +1,117 @@
+// ═══════════════════════════════════════════════════════════════
+// AES Global Theme — Angular Material Dark + AAVA Color Palette
+// ═══════════════════════════════════════════════════════════════
+@use '@angular/material' as mat;
+
+@include mat.core();
+
+$aes-blue: (
+  50:#e3f2fd, 100:#bbdefb, 200:#90caf9, 300:#64b5f6, 400:#42a5f5,
+  500:#2196f3, 600:#1976d2, 700:#1565c0, 800:#0d47a1, 900:#0a3880,
+  A100:#82b1ff, A200:#4fc3f7, A400:#29b6f6, A700:#0288d1,
+  contrast:(50:rgba(0,0,0,.87),100:rgba(0,0,0,.87),200:rgba(0,0,0,.87),
+    300:rgba(0,0,0,.87),400:rgba(0,0,0,.87),500:#fff,600:#fff,700:#fff,
+    800:#fff,900:#fff,A100:rgba(0,0,0,.87),A200:rgba(0,0,0,.87),
+    A400:rgba(0,0,0,.87),A700:#fff)
+);
+
+$aes-theme: mat.define-dark-theme((
+  color:(
+    primary: mat.define-palette($aes-blue, A200, A100, A400),
+    accent:  mat.define-palette(mat.$cyan-palette, A200, A100, A400),
+    warn:    mat.define-palette(mat.$red-palette),
+  ),
+  typography: mat.define-typography-config(
+    $font-family: "'Inter','Segoe UI',Roboto,sans-serif",
+  ),
+  density: 0,
+));
+
+@include mat.all-component-themes($aes-theme);
+
+:root {
+  --aes-bg-root:      #07101f;
+  --aes-bg-sidebar:   #0a1628;
+  --aes-bg-header:    #0a1628;
+  --aes-bg-main:      #0d1b2e;
+  --aes-bg-card:      #0f2237;
+  --aes-bg-elevated:  #162a45;
+  --aes-bg-hover:     rgba(79,195,247,0.06);
+  --aes-bg-active:    rgba(79,195,247,0.12);
+  --aes-text-primary:   #e2e8f0;
+  --aes-text-secondary: #94a3b8;
+  --aes-text-muted:     #475569;
+  --aes-text-accent:    #4fc3f7;
+  --aes-accent:         #4fc3f7;
+  --aes-accent-dim:     rgba(79,195,247,0.15);
+  --aes-accent-glow:    rgba(79,195,247,0.25);
+  --aes-success:   #4caf50;  --aes-success-bg: rgba(76,175,80,0.15);
+  --aes-warning:   #ff9800;  --aes-warning-bg: rgba(255,152,0,0.15);
+  --aes-error:     #f44336;  --aes-error-bg:   rgba(244,67,54,0.15);
+  --aes-info:      #29b6f6;  --aes-info-bg:    rgba(41,182,246,0.15);
+  --aes-border:       rgba(79,195,247,0.1);
+  --aes-border-md:    rgba(79,195,247,0.2);
+  --aes-border-strong:rgba(79,195,247,0.35);
+  --aes-sidebar-width:260px;
+  --aes-sidebar-collapsed-width:56px;
+  --aes-header-height:56px;
+  --aes-shadow-card:0 4px 24px rgba(0,0,0,0.4);
+  --aes-shadow-glow:0 0 20px rgba(79,195,247,0.15);
+  --aes-radius-sm:4px; --aes-radius-md:8px;
+  --aes-radius-lg:12px; --aes-radius-xl:16px;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--aes-bg-root);
+  font-family:'Inter','Segoe UI',Roboto,sans-serif;color:var(--aes-text-primary);
+  font-size:14px;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(79,195,247,0.2);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:rgba(79,195,247,0.4)}
+
+.mat-mdc-card{background:var(--aes-bg-card)!important;border:1px solid var(--aes-border);
+  border-radius:var(--aes-radius-lg)!important;box-shadow:var(--aes-shadow-card)!important}
+.mat-mdc-dialog-container{background:var(--aes-bg-elevated)!important;
+  border:1px solid var(--aes-border-md);border-radius:var(--aes-radius-lg)!important}
+.mat-mdc-menu-panel{background:var(--aes-bg-elevated)!important;
+  border:1px solid var(--aes-border-md);border-radius:var(--aes-radius-md)!important}
+.mat-mdc-snack-bar-container .mdc-snackbar__surface{
+  background:var(--aes-bg-elevated)!important;border:1px solid var(--aes-border-md)!important}
+.mat-mdc-table{background:transparent!important}
+.mat-mdc-row{border-bottom-color:var(--aes-border)!important}
+.mat-mdc-row:hover{background:var(--aes-bg-hover)!important}
+.mat-mdc-header-row{background:var(--aes-bg-elevated)!important;
+  border-bottom:1px solid var(--aes-border-md)!important}
+.mat-mdc-header-cell{color:var(--aes-text-secondary)!important;font-size:11px!important;
+  font-weight:600!important;text-transform:uppercase;letter-spacing:.06em!important}
+.mat-mdc-cell{color:var(--aes-text-primary)!important;border-bottom-color:var(--aes-border)!important}
+
+.aes-badge{display:inline-flex;align-items:center;padding:2px 10px;border-radius:20px;
+  font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.aes-badge.approved{color:var(--aes-success);background:var(--aes-success-bg)}
+.aes-badge.in_review,.aes-badge.pending{color:var(--aes-warning);background:var(--aes-warning-bg)}
+.aes-badge.created,.aes-badge.draft{color:var(--aes-info);background:var(--aes-info-bg)}
+.aes-badge.failed{color:var(--aes-error);background:var(--aes-error-bg)}
+.aes-badge.running{color:var(--aes-accent);background:var(--aes-accent-dim);
+  animation:pulse-badge 1.5s ease-in-out infinite}
+
+.aes-type-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;
+  border-radius:var(--aes-radius-sm);font-size:11px;font-weight:500}
+.aes-type-chip.agent    {color:#a78bfa;background:rgba(167,139,250,.12)}
+.aes-type-chip.workflow {color:#34d399;background:rgba(52,211,153,.12)}
+.aes-type-chip.tool     {color:#fbbf24;background:rgba(251,191,36,.12)}
+.aes-type-chip.kb       {color:#60a5fa;background:rgba(96,165,250,.12)}
+.aes-type-chip.guardrail{color:#f87171;background:rgba(248,113,113,.12)}
+
+@keyframes pulse-badge{0%,100%{opacity:1}50%{opacity:0.6}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fade-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes glow-pulse{0%,100%{box-shadow:0 0 0 1px rgba(79,195,247,.3)}
+  50%{box-shadow:0 0 0 1px rgba(79,195,247,.3),0 0 20px rgba(79,195,247,.2)}}
+
+.aes-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:60px 20px;color:var(--aes-text-muted);gap:12px}
+.aes-empty mat-icon{font-size:48px!important;width:48px!important;height:48px!important;opacity:.25}
+.aes-empty p{font-size:14px;text-align:center;max-width:320px;line-height:1.6}
+.aes-fade-in{animation:fade-in .3s ease forwards}
