@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, OnDestroy } from '@angular/core';
+import { Component, computed, inject, signal, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -40,7 +40,7 @@ export class ExecuteComponent implements OnDestroy {
   readonly agents   = this.execSvc.agentProgress;
   readonly isRunning = this.execSvc.isRunning;
 
-  workflows = signal<{ id: number; name: string; agentCount?: number }[]>([]);
+  workflows = signal<{ id: number; name: string; status?: string; agentCount?: number }[]>([]);
   selectedWorkflow: number | null = null;
   inputText = '';
   selectedFile: File | null = null;
@@ -63,11 +63,20 @@ export class ExecuteComponent implements OnDestroy {
       catchError(() => of({ workFlowDetails: [], totalNoOfRecords: 0 }))
     ).subscribe(res => {
       this.loadingWorkflows.set(false);
-      this.workflows.set(
-        (res.workFlowDetails ?? [])
-          .filter((w: any) => w.status === 'APPROVED')
-          .map((w: any) => ({ id: w.id, name: w.name, agentCount: w.workflowAgents?.length }))
-      );
+      const all = (res.workFlowDetails ?? [])
+        .map((w: any) => ({
+          id: w.id,
+          name: w.name,
+          status: w.status,
+          agentCount: w.workflowAgents?.length ?? 0,
+        }))
+        .sort((a: any, b: any) => {
+          // APPROVED first, then by name
+          if (a.status === 'APPROVED' && b.status !== 'APPROVED') return -1;
+          if (b.status === 'APPROVED' && a.status !== 'APPROVED') return 1;
+          return a.name.localeCompare(b.name);
+        });
+      this.workflows.set(all);
     });
   }
 
@@ -76,9 +85,9 @@ export class ExecuteComponent implements OnDestroy {
     this.selectedFile = input.files?.[0] ?? null;
   }
 
-  canRun = computed(() =>
-    !!this.selectedWorkflow && !this.isRunning()
-  );
+  get canRun(): boolean {
+    return !!this.selectedWorkflow && !this.isRunning();
+  }
 
   run$ = (): void => {
     const wfId = this.selectedWorkflow;

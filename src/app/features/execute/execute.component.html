@@ -15,16 +15,22 @@
           <mat-form-field appearance="outline" class="full-width">
             <mat-select [(ngModel)]="selectedWorkflow" placeholder="Select a workflow">
               @for (wf of workflows(); track wf.id) {
-                <mat-option [value]="wf.id">{{ wf.name }}</mat-option>
+                <mat-option [value]="wf.id">
+                  <span class="wf-option">
+                    <span class="wf-name">{{ wf.name }}</span>
+                    <span class="wf-meta">{{ wf.agentCount }} agents · {{ wf.status }}</span>
+                  </span>
+                </mat-option>
               }
             </mat-select>
           </mat-form-field>
-          @if (!workflows().length) {
-            <button mat-stroked-button class="load-btn" (click)="loadWorkflows()">
-              @if (loadingWorkflows()) { <mat-spinner diameter="16" /> }
-              @else { <mat-icon>refresh</mat-icon> }
-              Load Workflows
-            </button>
+          <button mat-stroked-button class="load-btn" (click)="loadWorkflows()">
+            @if (loadingWorkflows()) { <mat-spinner diameter="16" /> }
+            @else { <mat-icon>refresh</mat-icon> }
+            {{ workflows().length ? 'Reload' : 'Load Workflows' }}
+          </button>
+          @if (workflows().length) {
+            <div class="workflow-count">{{ workflows().length }} workflows loaded</div>
           }
         </div>
 
@@ -56,7 +62,7 @@
 
         <!-- Run button -->
         <button mat-flat-button color="primary" class="run-btn"
-                [disabled]="!canRun()"
+                [disabled]="!canRun"
                 (click)="run$()">
           @if (isRunning()) {
             <mat-spinner diameter="18" />
