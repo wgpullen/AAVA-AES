@@ -164,16 +164,14 @@ export class ExecuteComponent implements OnInit, OnDestroy {
 
       const agents = this.agents();
       agents.forEach((a, i) => {
-        const st = a.status as string;
-        if (st === 'done' || st === 'error') return;
+        // already finished — don't touch
+        if (a.status === 'done' || a.status === 'error') return;
         if (i < currentAgent) {
-          if (st !== 'done') {
-            this.execSvc.updateAgentProgress(i, { status: 'done', completedAt: new Date() });
-          }
-        } else if (i === currentAgent) {
-          if (st !== 'running') {
-            this.execSvc.updateAgentProgress(i, { status: 'running', startedAt: new Date() });
-          }
+          // this agent should be done by now
+          this.execSvc.updateAgentProgress(i, { status: 'done', completedAt: new Date() });
+        } else if (i === currentAgent && a.status !== 'running') {
+          // advance the current agent to running
+          this.execSvc.updateAgentProgress(i, { status: 'running', startedAt: new Date() });
         }
       });
     });
