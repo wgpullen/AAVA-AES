@@ -139,11 +139,35 @@ export class AavaApiService {
     ));
   }
 
-  listWorkflowExecutions(pipelineId?: number): Observable<unknown> {
-    let params = new HttpParams();
+  getWorkflowDetails(workflowId: number): Observable<any> {
+    return this.unwrap(this.http.get<any>(
+      `${this.base}/workflows/${workflowId}`, { headers: this.headers() }
+    ));
+  }
+
+  getExecutionStatus(executionId: string): Observable<any> {
+    return this.unwrap(this.http.get<any>(
+      `${this.base}/workflows/workflow-executions/${executionId}`, { headers: this.headers() }
+    ));
+  }
+
+  listWorkflowExecutions(pipelineId?: number, page = 1, records = 50): Observable<any> {
+    let params = new HttpParams().set('page', page).set('records', records);
     if (pipelineId) params = params.set('pipelineId', pipelineId);
     return this.unwrap(this.http.get<any>(
       `${this.base}/workflows/workflow-executions`, { headers: this.headers(), params }
+    ));
+  }
+
+  listWorkflowExecutionsForRealm(realmId: string, page = 1, records = 50): Observable<any> {
+    const hdrs = new HttpHeaders({
+      'Authorization': `Bearer ${this.auth.token()}`,
+      'x-realm-id': realmId,
+      'Content-Type': 'application/json',
+    });
+    let params = new HttpParams().set('page', page).set('records', records);
+    return this.unwrap(this.http.get<any>(
+      `${this.base}/workflows/workflow-executions`, { headers: hdrs, params }
     ));
   }
 

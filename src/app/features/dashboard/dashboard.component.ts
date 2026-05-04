@@ -44,19 +44,21 @@ export class DashboardComponent implements OnInit {
 
   ngOnInit(): void {
     forkJoin({
-      agents:    this.api.listAgents(1, 1).pipe(catchError(() => of({ agentDetails: [], totalNoOfRecords: 0 }))),
-      workflows: this.api.listUserWorkflows(1, 1).pipe(catchError(() => of({ workFlowDetails: [], totalNoOfRecords: 0 }))),
-      tools:     this.api.listUserTools(1, 1).pipe(catchError(() => of({ userToolDetails: [], totalNoOfRecords: 0 }))),
-      kbs:       this.api.listKnowledgeBases(0, 1).pipe(catchError(() => of({ data: [], totalElements: 0 }))),
+      agents:     this.api.listAgents(1, 1).pipe(catchError(() => of({ agentDetails: [], totalNoOfRecords: 0 }))),
+      workflows:  this.api.listUserWorkflows(1, 1).pipe(catchError(() => of({ workFlowDetails: [], totalNoOfRecords: 0 }))),
+      tools:      this.api.listUserTools(1, 1).pipe(catchError(() => of({ userToolDetails: [], totalNoOfRecords: 0 }))),
+      kbs:        this.api.listKnowledgeBases(0, 1).pipe(catchError(() => of({ data: [], totalElements: 0 }))),
+      guardrails: this.api.listGuardrails(1, 1).pipe(catchError(() => of({ guardrails: [], totalNoOfRecords: 0 }))),
     }).subscribe(res => {
       this.loading.set(false);
+      const grCount = (res.guardrails as any).totalNoOfRecords ?? (res.guardrails as any).guardrails?.length ?? 0;
       this.stats.set([
-        { label: 'Agents',         value: res.agents.totalNoOfRecords,    icon: 'smart_toy',    color: '#a78bfa', route: '/studio/search' },
-        { label: 'Workflows',      value: res.workflows.totalNoOfRecords, icon: 'account_tree', color: '#34d399', route: '/studio/search' },
-        { label: 'Tools',          value: res.tools.totalNoOfRecords,     icon: 'build',        color: '#fbbf24', route: '/studio/search' },
-        { label: 'Knowledge Bases',value: res.kbs.totalElements ?? 0,     icon: 'menu_book',    color: '#60a5fa', route: '/studio/search' },
-        { label: 'Projects',       value: this.projects.projects().length,icon: 'folder_open',  color: '#f97316', route: '/studio/projects' },
-        { label: 'Favorites',      value: this.favorites().length,        icon: 'star',         color: '#fbbf24', route: '/studio/search' },
+        { label: 'Agents',         value: res.agents.totalNoOfRecords,    icon: 'smart_toy',    color: '#c4b5fd', route: '/studio/search' },
+        { label: 'Workflows',      value: res.workflows.totalNoOfRecords, icon: 'account_tree', color: '#86efac', route: '/studio/search' },
+        { label: 'Tools',          value: res.tools.totalNoOfRecords,     icon: 'build',        color: '#fcd34d', route: '/studio/search' },
+        { label: 'Knowledge Bases',value: res.kbs.totalElements ?? 0,     icon: 'menu_book',    color: '#93c5fd', route: '/studio/search' },
+        { label: 'Guardrails',     value: grCount,                        icon: 'security',     color: '#fca5a5', route: '/studio/search' },
+        { label: 'Projects',       value: this.projects.projects().length, icon: 'folder_open', color: '#fb923c', route: '/studio/projects' },
       ]);
     });
   }

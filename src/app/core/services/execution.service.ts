@@ -67,11 +67,15 @@ export class ExecutionService {
   }
 
   startRun(workflowId: number, workflowName: string, agentCount: number): void {
+    this.startRunWithNames(workflowId, workflowName, agentCount, []);
+  }
+
+  startRunWithNames(workflowId: number, workflowName: string, agentCount: number, agentNames: string[]): void {
     const agents: AgentProgress[] = Array.from({ length: agentCount }, (_, i) => ({
       index: i,
-      name: `Agent ${i + 1}`,
-      status: i === 0 ? 'running' : 'pending',
-      startedAt: i === 0 ? new Date() : undefined,
+      name: agentNames[i] ?? `Agent ${i + 1}`,
+      status: 'pending' as const,
+      startedAt: undefined,
     }));
     const run: ExecutionRun = {
       executionId: '',

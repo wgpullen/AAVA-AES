@@ -1,81 +1,112 @@
 <div class="examples-page aes-fade-in">
+
+  <!-- Header -->
   <div class="page-header">
-    <div class="page-title-block">
-      <h3>Example Runs</h3>
-      <p>Completed workflow executions — click to explore agent outputs and final results</p>
+    <div>
+      <h3>Execution History</h3>
+      <p>All workflow runs across your realms — expand to view outputs or re-run with original inputs</p>
+    </div>
+    <div class="header-actions">
+      <!-- Status filter -->
+      <div class="filter-tabs">
+        @for (f of ['ALL','COMPLETED','FAILED']; track f) {
+          <button class="filter-tab" [class.active]="statusFilter === f"
+                  (click)="statusFilter = f">{{ f }}</button>
+        }
+      </div>
+      <button class="reload-btn" (click)="loadRuns()">
+        <mat-icon>refresh</mat-icon>
+      </button>
     </div>
   </div>
 
   @if (loading()) {
-    <div class="loading-center">
-      <mat-spinner diameter="36" />
-    </div>
-  } @else if (!examples().length) {
+    <div class="loading-center"><mat-spinner diameter="36" /></div>
+  } @else if (!filtered.length) {
     <div class="aes-empty">
       <mat-icon>history</mat-icon>
-      <p>No completed workflow executions yet. Run a workflow from the Execute page to see results here.</p>
+      <p>No workflow executions found. Run a workflow from Execute & Watch to see history here.</p>
     </div>
   } @else {
-    <mat-accordion class="examples-accordion" multi>
-      @for (run of examples(); track run.id) {
-        <mat-expansion-panel class="example-panel"
-                             (opened)="loadDetails(run)">
-          <mat-expansion-panel-header>
-            <mat-panel-title>
-              <div class="run-title-row">
-                <mat-icon class="run-status-icon status-completed">check_circle</mat-icon>
-                <div class="run-info">
-                  <div class="run-name">{{ run.workflowName }}</div>
-                  <div class="run-meta-row">
-                    <span class="run-date">{{ run.startedAt | date:'MMM d, y · h:mm a' }}</span>
-                    @if (duration(run)) {
-                      <span class="run-duration">· {{ duration(run) }}</span>
-                    }
-                    @if (run.agentCount) {
-                      <span class="run-agents">· {{ run.agentCount }} agents</span>
-                    }
-                  </div>
-                </div>
-                <span class="aes-badge approved">COMPLETED</span>
-              </div>
-            </mat-panel-title>
-          </mat-expansion-panel-header>
+    <div class="runs-list">
+      @for (run of filtered; track run.id) {
+        <div class="run-card" [class.expanded]="run.expanded">
 
-          <div class="run-detail">
-            <!-- Agent outputs -->
-            @if (run.outputs.length) {
-              <div class="agent-outputs">
-                @for (out of run.outputs; track out.agentName; let i = $index) {
-                  <div class="agent-output-row">
-                    <div class="ao-header">
-                      <div class="ao-serial">{{ i + 1 }}</div>
-                      <div class="ao-name">{{ out.agentName }}</div>
-                      <mat-icon class="ao-status">check_circle</mat-icon>
-                    </div>
-                    <div class="ao-preview">{{ out.preview }}</div>
-                  </div>
-                }
+          <!-- Card header -->
+          <div class="run-card-header" (click)="toggle(run)">
+            <mat-icon class="run-icon" [class]="'status-' + statusClass(run.status)">
+              {{ statusIcon(run.status) }}
+            </mat-icon>
+            <div class="run-info">
+              <div class="run-name">{{ run.workflowName }}</div>
+              <div class="run-meta">
+                <span class="run-date">{{ run.startedAt | date:'MMM d, y · h:mm a' }}</span>
+                @if (duration(run)) { <span class="sep">·</span><span class="run-dur">{{ duration(run) }}</span> }
+                @if (run.agentCount) { <span class="sep">·</span><span class="run-agents">{{ run.agentCount }} agents</span> }
+                @if (run.realmId) { <span class="sep">·</span><span class="realm-tag">Realm {{ run.realmId }}</span> }
               </div>
-            } @else {
-              <div class="loading-center">
-                <mat-spinner diameter="24" />
-                <span>Loading outputs...</span>
-              </div>
-            }
-
-            <!-- Final output -->
-            @if (run.finalOutput) {
-              <div class="final-output-block">
-                <div class="final-output-label">
-                  <mat-icon>article</mat-icon>
-                  Final Output
-                </div>
-                <pre class="final-output-content">{{ run.finalOutput }}</pre>
-              </div>
-            }
+            </div>
+            <div class="run-actions">
+              <span class="aes-badge {{ statusClass(run.status) }}">{{ run.status }}</span>
+              <button mat-icon-button class="rerun-btn"
+                      matTooltip="Re-run with original inputs"
+                      (click)="$event.stopPropagation(); reRun(run)">
+                <mat-icon>replay</mat-icon>
+              </button>
+              <mat-icon class="expand-icon">{{ run.expanded ? 'expand_less' : 'expand_more' }}</mat-icon>
+            </div>
           </div>
-        </mat-expansion-panel>
+
+          <!-- Expanded detail -->
+          @if (run.expanded) {
+            <div class="run-detail aes-fade-in">
+
+              @if (run.userInput) {
+                <div class="input-used">
+                  <span class="input-label"><mat-icon>input</mat-icon> Original Input:</span>
+                  <span class="input-text">{{ run.userInput }}</span>
+                </div>
+              }
+
+              @if (run.status === 'COMPLETED') {
+                @if (!run.outputs.length) {
+                  <div class="loading-inline"><mat-spinner diameter="20" /><span>Loading outputs…</span></div>
+                } @else {
+                  <div class="agent-outputs">
+                    @for (out of run.outputs; track out.agentName; let i = $index) {
+                      <div class="agent-out-row">
+                        <div class="ao-header">
+                          <div class="ao-num">{{ i + 1 }}</div>
+                          <div class="ao-name">{{ out.agentName }}</div>
+                          <mat-icon class="ao-check">check_circle</mat-icon>
+                        </div>
+                        @if (out.preview) {
+                          <div class="ao-preview">{{ out.preview }}</div>
+                        }
+                      </div>
+                    }
+                  </div>
+
+                  @if (run.finalOutput) {
+                    <div class="final-block">
+                      <div class="final-label"><mat-icon>article</mat-icon> Final Output</div>
+                      <pre class="final-content">{{ run.finalOutput }}</pre>
+                    </div>
+                  }
+                }
+              } @else {
+                <div class="error-block">
+                  <mat-icon>error_outline</mat-icon>
+                  <span>This execution {{ run.status === 'FAILED' ? 'failed' : 'did not complete' }}.</span>
+                  <button mat-stroked-button class="retry-btn" (click)="reRun(run)">
+                    <mat-icon>replay</mat-icon> Try Again
+                  </button>
+                </div>
+              }
+            </div>
+          }
+        </div>
       }
-    </mat-accordion>
+    </div>
   }
 </div>

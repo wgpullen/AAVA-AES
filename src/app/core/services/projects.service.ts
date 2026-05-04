@@ -17,16 +17,16 @@ export class ProjectsService {
   readonly favorites = computed(() => this._favorites());
 
   private loadProjects(): Project[] {
-    try { return JSON.parse(sessionStorage.getItem(PROJECTS_KEY) ?? '[]'); } catch { return []; }
+    try { return JSON.parse(localStorage.getItem(PROJECTS_KEY) ?? '[]'); } catch { return []; }
   }
 
   private loadFavorites(): FavoriteItem[] {
-    try { return JSON.parse(sessionStorage.getItem(FAVORITES_KEY) ?? '[]'); } catch { return []; }
+    try { return JSON.parse(localStorage.getItem(FAVORITES_KEY) ?? '[]'); } catch { return []; }
   }
 
   private persist(): void {
-    sessionStorage.setItem(PROJECTS_KEY, JSON.stringify(this._projects()));
-    sessionStorage.setItem(FAVORITES_KEY, JSON.stringify(this._favorites()));
+    localStorage.setItem(PROJECTS_KEY, JSON.stringify(this._projects()));
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify(this._favorites()));
   }
 
   createProject(name: string, description = ''): Project {

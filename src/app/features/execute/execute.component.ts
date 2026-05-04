@@ -1,5 +1,6 @@
-import { Component, computed, inject, signal, OnDestroy } from '@angular/core';
+import { Component, computed, inject, signal, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -7,16 +8,21 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatExpansionModule } from '@angular/material/expansion';
-import { MatCardModule } from '@angular/material/card';
-import { MatDividerModule } from '@angular/material/divider';
-import { MatChipsModule } from '@angular/material/chips';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { CommonModule } from '@angular/common';
 import { catchError, interval, of, Subscription, switchMap, takeWhile } from 'rxjs';
 import { AavaApiService } from '../../core/services/aava-api.service';
 import { ExecutionService } from '../../core/services/execution.service';
 import { NotificationService } from '../../core/services/notification.service';
-import { ExecutionStatus, AgentProgress } from '../../core/models/execution.models';
+import { ExecutionStatus } from '../../core/models/execution.models';
+
+interface WorkflowOption {
+  id: number;
+  name: string;
+  status?: string;
+  agentCount?: number;
+  agentNames?: string[];
+}
 
 @Component({
   selector: 'app-execute',
@@ -25,36 +31,48 @@ import { ExecutionStatus, AgentProgress } from '../../core/models/execution.mode
     FormsModule, CommonModule,
     MatFormFieldModule, MatInputModule, MatSelectModule,
     MatButtonModule, MatIconModule, MatProgressBarModule,
-    MatProgressSpinnerModule, MatExpansionModule, MatCardModule,
-    MatDividerModule, MatChipsModule,
+    MatProgressSpinnerModule, MatTooltipModule,
   ],
   templateUrl: './execute.component.html',
   styleUrl: './execute.component.scss',
 })
-export class ExecuteComponent implements OnDestroy {
+export class ExecuteComponent implements OnInit, OnDestroy {
   private api       = inject(AavaApiService);
   private execSvc   = inject(ExecutionService);
   private notify    = inject(NotificationService);
+  private route     = inject(ActivatedRoute);
 
-  readonly run      = this.execSvc.activeRun;
-  readonly agents   = this.execSvc.agentProgress;
+  readonly run       = this.execSvc.activeRun;
+  readonly agents    = this.execSvc.agentProgress;
   readonly isRunning = this.execSvc.isRunning;
 
-  workflows = signal<{ id: number; name: string; status?: string; agentCount?: number }[]>([]);
+  workflows        = signal<WorkflowOption[]>([]);
   selectedWorkflow: number | null = null;
-  inputText = '';
+  inputText        = '';
   selectedFile: File | null = null;
   loadingWorkflows = signal(false);
-  showResults = signal(false);
-  executionResult = signal<any>(null);
+  showResults      = signal(false);
+  executionResult  = signal<any>(null);
 
   private pollSub?: Subscription;
   private sseSub?: Subscription;
+  private timerSub?: Subscription;
 
   ExecutionStatus = ExecutionStatus;
 
+  ngOnInit(): void {
+    this.loadWorkflows();
+    // Handle re-run from Example Runs page
+    this.route.queryParams.subscribe(p => {
+      if (p['workflowId']) {
+        this.selectedWorkflow = Number(p['workflowId']);
+      }
+      if (p['input']) this.inputText = p['input'];
+    });
+  }
+
   ngOnDestroy(): void {
-    this.stopPolling();
+    this.stopAll();
   }
 
   loadWorkflows(): void {
@@ -69,9 +87,12 @@ export class ExecuteComponent implements OnDestroy {
           name: w.name,
           status: w.status,
           agentCount: w.workflowAgents?.length ?? 0,
+          agentNames: (w.workflowAgents ?? [])
+            .sort((a: any, b: any) => (a.serial ?? 0) - (b.serial ?? 0))
+            .map((wa: any) => wa.agent?.name ?? wa.agentName ?? null)
+            .filter(Boolean),
         }))
         .sort((a: any, b: any) => {
-          // APPROVED first, then by name
           if (a.status === 'APPROVED' && b.status !== 'APPROVED') return -1;
           if (b.status === 'APPROVED' && a.status !== 'APPROVED') return 1;
           return a.name.localeCompare(b.name);
@@ -89,13 +110,19 @@ export class ExecuteComponent implements OnDestroy {
     return !!this.selectedWorkflow && !this.isRunning();
   }
 
-  run$ = (): void => {
+  get selectedWf(): WorkflowOption | undefined {
+    return this.workflows().find(w => w.id === this.selectedWorkflow);
+  }
+
+  run$(): void {
     const wfId = this.selectedWorkflow;
     if (!wfId) return;
 
-    const wf = this.workflows().find(w => w.id === wfId);
-    const agentCount = wf?.agentCount ?? 3;
-    this.execSvc.startRun(wfId, wf?.name ?? 'Workflow', agentCount);
+    const wf = this.selectedWf;
+    const agentNames = wf?.agentNames ?? [];
+    const agentCount = agentNames.length || wf?.agentCount || 3;
+
+    this.execSvc.startRunWithNames(wfId, wf?.name ?? 'Workflow', agentCount, agentNames);
     this.showResults.set(false);
     this.executionResult.set(null);
 
@@ -113,16 +140,44 @@ export class ExecuteComponent implements OnDestroy {
       const execId = res.workflowExecutionId;
       if (!execId) { this.execSvc.failRun('No execution ID returned'); return; }
 
-      // Update activeRun with execution ID
       const currentRun = this.run();
       if (currentRun) {
         this.execSvc.activeRun.set({ ...currentRun, executionId: execId });
       }
 
-      // Try SSE first, fall back to polling
+      this.startProgressSimulation(agentCount);
       this.startSseOrPoll(execId);
     });
-  };
+  }
+
+  /** Simulate per-agent progress while waiting for real data */
+  private startProgressSimulation(agentCount: number): void {
+    const avgAgentMs = 45000; // assume ~45s per agent
+    const startTime = Date.now();
+
+    this.timerSub = interval(1200).subscribe(() => {
+      if (!this.isRunning()) { this.timerSub?.unsubscribe(); return; }
+      const elapsed = Date.now() - startTime;
+      const estimatedDone = (elapsed / avgAgentMs);
+      const currentAgent = Math.min(Math.floor(estimatedDone), agentCount - 1);
+      const agentFraction = estimatedDone - Math.floor(estimatedDone);
+
+      const agents = this.agents();
+      agents.forEach((a, i) => {
+        const st = a.status as string;
+        if (st === 'done' || st === 'error') return;
+        if (i < currentAgent) {
+          if (st !== 'done') {
+            this.execSvc.updateAgentProgress(i, { status: 'done', completedAt: new Date() });
+          }
+        } else if (i === currentAgent) {
+          if (st !== 'running') {
+            this.execSvc.updateAgentProgress(i, { status: 'running', startedAt: new Date() });
+          }
+        }
+      });
+    });
+  }
 
   private startSseOrPoll(execId: string): void {
     this.sseSub = this.execSvc.streamExecution(execId).subscribe({
@@ -133,32 +188,26 @@ export class ExecuteComponent implements OnDestroy {
   }
 
   private startPolling(execId: string): void {
-    this.pollSub = interval(3000).pipe(
-      switchMap(() => this.api.getExecutionResult(execId).pipe(catchError(() => of(null)))),
+    this.pollSub = interval(4000).pipe(
+      switchMap(() => this.api.getExecutionStatus(execId).pipe(catchError(() => of(null)))),
       takeWhile((res: any) => {
         if (!res) return true;
-        const status = res?.status ?? res?.executionStatus ?? '';
-        return !['COMPLETED', 'FAILED', 'ERROR'].includes(status);
+        const st = res?.status ?? res?.executionStatus ?? '';
+        return !['COMPLETED', 'FAILED', 'ERROR'].includes(st);
       }, true),
     ).subscribe((res: any) => {
       if (!res) return;
-      const status = res?.status ?? res?.executionStatus ?? '';
-
-      if (['COMPLETED', 'FAILED', 'ERROR'].includes(status)) {
-        if (status === 'COMPLETED') {
-          this.parseAndCompleteRun(res);
-        } else {
-          this.execSvc.failRun('Execution failed');
-          this.notify.error('Workflow execution failed');
-        }
+      const st = res?.status ?? res?.executionStatus ?? '';
+      if (['COMPLETED', 'FAILED', 'ERROR'].includes(st)) {
+        if (st === 'COMPLETED') this.finishExecution(execId);
+        else { this.execSvc.failRun('Execution failed'); this.notify.error('Workflow execution failed'); }
       }
     });
   }
 
   private finishExecution(execId: string): void {
-    this.api.getExecutionResult(execId).pipe(
-      catchError(() => of(null))
-    ).subscribe(res => {
+    this.timerSub?.unsubscribe();
+    this.api.getExecutionResult(execId).pipe(catchError(() => of(null))).subscribe(res => {
       if (res) this.parseAndCompleteRun(res);
       else this.execSvc.completeRun({});
     });
@@ -172,10 +221,10 @@ export class ExecuteComponent implements OnDestroy {
         parsed = JSON.parse(data.result.response);
       }
 
-      // Update agent progress from result
-      const tasks = parsed?.tasksOutputs ?? [];
+      const tasks     = parsed?.tasksOutputs ?? [];
       const agentList = parsed?.pipeLineAgents ?? [];
-      const progress = this.agents();
+      const progress  = this.agents();
+
       tasks.forEach((task: any, i: number) => {
         const idx = Math.min(i, progress.length - 1);
         this.execSvc.updateAgentProgress(idx, {
@@ -184,6 +233,12 @@ export class ExecuteComponent implements OnDestroy {
           name: agentList[i]?.agent?.name ?? progress[idx]?.name,
           completedAt: new Date(),
         });
+      });
+      // Mark any remaining running agents done
+      this.agents().forEach((a, i) => {
+        if (a.status === 'running') {
+          this.execSvc.updateAgentProgress(i, { status: 'done', completedAt: new Date() });
+        }
       });
 
       this.executionResult.set(parsed);
@@ -196,13 +251,14 @@ export class ExecuteComponent implements OnDestroy {
     }
   }
 
-  private stopPolling(): void {
+  private stopAll(): void {
     this.pollSub?.unsubscribe();
     this.sseSub?.unsubscribe();
+    this.timerSub?.unsubscribe();
   }
 
   reset(): void {
-    this.stopPolling();
+    this.stopAll();
     this.execSvc.reset();
     this.showResults.set(false);
     this.executionResult.set(null);
@@ -218,17 +274,17 @@ export class ExecuteComponent implements OnDestroy {
   }
 
   overallProgress = computed(() => {
-    const agents = this.agents();
-    if (!agents.length) return 0;
-    const done = agents.filter(a => a.status === 'done').length;
-    const running = agents.filter(a => a.status === 'running').length;
-    return Math.round(((done + running * 0.5) / agents.length) * 100);
+    const a = this.agents();
+    if (!a.length) return 0;
+    const done    = a.filter(x => x.status === 'done').length;
+    const running = a.filter(x => x.status === 'running').length;
+    return Math.round(((done + running * 0.5) / a.length) * 100);
   });
 
   elapsedTime = computed(() => {
-    const run = this.run();
-    if (!run?.startedAt) return '';
-    const ms = (run.completedAt ? run.completedAt.getTime() : Date.now()) - run.startedAt.getTime();
+    const r = this.run();
+    if (!r?.startedAt) return '';
+    const ms = (r.completedAt ? r.completedAt.getTime() : Date.now()) - r.startedAt.getTime();
     const s = Math.floor(ms / 1000);
     if (s < 60) return `${s}s`;
     return `${Math.floor(s / 60)}m ${s % 60}s`;
