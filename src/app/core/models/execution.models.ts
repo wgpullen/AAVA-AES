@@ -60,7 +60,7 @@ export interface SseEvent {
   type: string;
   agentIndex?: number;
   agentName?: string;
-  serial?: number;
+  serial?: number;      // AAVA SSE uses 1-indexed serial; applyEvent converts to 0-indexed
   status?: string;
   message?: string;
   output?: string;

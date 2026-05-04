@@ -100,29 +100,49 @@ export class ExecutionService {
 
   applyEvent(event: SseEvent): void {
     const progress = [...this.agentProgress()];
-    if (event.agentIndex !== undefined && progress[event.agentIndex]) {
-      const agent = progress[event.agentIndex];
-      if (event.status === 'started')   agent.status = 'running';
-      if (event.status === 'completed') { agent.status = 'done'; agent.completedAt = new Date(); }
-      if (event.status === 'failed')    { agent.status = 'error'; agent.error = event.message; }
+
+    // Resolve which agent this event targets (serial is 1-indexed, agentIndex is 0-indexed)
+    let idx: number | undefined;
+    if (event.serial !== undefined) idx = event.serial - 1;
+    else if (event.agentIndex !== undefined) idx = event.agentIndex;
+
+    if (idx !== undefined && idx >= 0 && idx < progress.length) {
+      const agent = { ...progress[idx] };
+
+      // Map AAVA SSE status strings to our internal status
+      const st = (event.status ?? event.type ?? '').toUpperCase();
+      if (['STARTED', 'RUNNING', 'IN_PROGRESS', 'AGENT_STARTED'].includes(st)) {
+        agent.status = 'running';
+        if (!agent.startedAt) agent.startedAt = new Date();
+      }
+      if (['COMPLETED', 'SUCCESS', 'AGENT_COMPLETED', 'DONE'].includes(st)) {
+        agent.status = 'done';
+        if (!agent.completedAt) agent.completedAt = new Date();
+      }
+      if (['FAILED', 'ERROR', 'AGENT_FAILED'].includes(st)) {
+        agent.status = 'error';
+        agent.error = event.message;
+      }
       if (event.output) agent.output = event.output;
       if (event.agentName) agent.name = event.agentName;
-      progress[event.agentIndex] = agent;
+      progress[idx] = agent;
 
-      // Activate next agent
-      const next = event.agentIndex + 1;
-      if (event.status === 'completed' && next < progress.length) {
-        progress[next] = { ...progress[next], status: 'running', startedAt: new Date() };
+      // Activate next agent when current completes
+      if (agent.status === 'done' && idx + 1 < progress.length && progress[idx + 1].status === 'pending') {
+        progress[idx + 1] = { ...progress[idx + 1], status: 'running', startedAt: new Date() };
       }
       this.agentProgress.set(progress);
     }
 
-    if (event.type === 'COMPLETED' || event.type === 'FAILED') {
+    // Workflow-level terminal events
+    const wfType = (event.type ?? '').toUpperCase();
+    if (['COMPLETED', 'WORKFLOW_COMPLETED', 'FAILED', 'WORKFLOW_FAILED'].includes(wfType)) {
+      const succeeded = ['COMPLETED', 'WORKFLOW_COMPLETED'].includes(wfType);
       this.isRunning.set(false);
       const run = this.activeRun();
       if (run) this.activeRun.set({
         ...run,
-        status: event.type === 'COMPLETED' ? ExecutionStatus.COMPLETED : ExecutionStatus.FAILED,
+        status: succeeded ? ExecutionStatus.COMPLETED : ExecutionStatus.FAILED,
         completedAt: new Date(),
       });
     }

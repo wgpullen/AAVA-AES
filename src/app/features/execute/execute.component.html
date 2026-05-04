@@ -13,17 +13,40 @@
         <div class="config-section">
           <div class="section-label">Workflow</div>
           <mat-form-field appearance="outline" class="full-width">
-            <mat-select [(ngModel)]="selectedWorkflow" placeholder="Select a workflow">
+            <mat-select [(ngModel)]="selectedWorkflow"
+                        (ngModelChange)="onWorkflowChange()"
+                        placeholder="Select a workflow">
               @for (wf of workflows(); track wf.id) {
                 <mat-option [value]="wf.id">
                   <span class="wf-option">
                     <span class="wf-name">{{ wf.name }}</span>
-                    <span class="wf-meta">{{ wf.agentCount }} agents · {{ wf.status }}</span>
+                    <span class="wf-meta">{{ wf.agentCount }} agent{{ wf.agentCount !== 1 ? 's' : '' }} · {{ wf.status }}</span>
                   </span>
                 </mat-option>
               }
             </mat-select>
           </mat-form-field>
+
+          @if (loadingDetails()) {
+            <div class="detail-loading">
+              <mat-spinner diameter="14" />
+              <span>Loading agent details…</span>
+            </div>
+          }
+          @if (!loadingDetails() && selectedWf && (selectedWf.agentCount ?? 0) > 0) {
+            <div class="agent-preview">
+              <mat-icon>account_tree</mat-icon>
+              <span>{{ selectedWf.agentCount }} agent{{ selectedWf.agentCount !== 1 ? 's' : '' }} in pipeline</span>
+              @if (selectedWf.agentNames?.length) {
+                <span class="agent-names-preview">
+                  @for (n of (selectedWf.agentNames ?? []); track n; let last = $last) {
+                    <span class="agent-chip">{{ n }}</span>
+                  }
+                </span>
+              }
+            </div>
+          }
+
           <button mat-stroked-button class="load-btn" (click)="loadWorkflows()">
             @if (loadingWorkflows()) { <mat-spinner diameter="16" /> }
             @else { <mat-icon>refresh</mat-icon> }
