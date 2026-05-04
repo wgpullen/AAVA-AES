@@ -1,0 +1,12 @@
+{
+  "/aava-api": {
+    "target": "https://int-ai.aava.ai",
+    "secure": true,
+    "changeOrigin": true,
+    "pathRewrite": { "^/aava-api": "" },
+    "logLevel": "debug",
+    "headers": {
+      "Accept": "application/json"
+    }
+  }
+}

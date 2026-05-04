@@ -1,27 +1,32 @@
-# AesApp
+# Autonomous Engineering Studio (AES)
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 17.3.17.
+Angular 17 studio for the AAVA platform — design, build, and execute AI pipelines with full real-time visibility.
 
-## Development server
+## Quick Start
 
-Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The application will automatically reload if you change any of the source files.
+```bash
+npm install
+./start.sh          # or: npx ng serve --proxy-config proxy.conf.json
+```
 
-## Code scaffolding
+Open **http://localhost:4200**, enter your AAVA Personal Access Token, click **Launch Studio**.
 
-Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
+> **Important:** Always start with `./start.sh` or `--proxy-config proxy.conf.json`. This proxies `/aava-api/*` → `https://int-ai.aava.ai` to avoid CORS errors in the browser.
 
-## Build
+## Features
 
-Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory.
+| Module | Route | Description |
+|--------|-------|-------------|
+| Dashboard | `/studio/dashboard` | Live stats, quick links, starred artifacts |
+| Artifact Search | `/studio/search` | All 5 types, most-recent-first, favorites |
+| Execute & Watch | `/studio/execute` | Trigger workflows + SSE per-agent progress bars |
+| Pipeline Builder | `/studio/builder` | Problem → AI-designed pipeline → auto-built |
+| Projects | `/studio/projects` | Organize artifacts into Projects / Use Cases |
+| Example Runs | `/studio/examples` | Past executions with full per-agent output |
+| AES Assistant | `/studio/assistant` | Chat assistant powered by AAVA Revelio |
 
-## Running unit tests
+## Auth
 
-Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
-
-## Running end-to-end tests
-
-Run `ng e2e` to execute the end-to-end tests via a platform of your choice. To use this command, you need to first add a package that implements end-to-end testing capabilities.
-
-## Further help
-
-To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI Overview and Command Reference](https://angular.io/cli) page.
+- Token verified against `GET /agents/user` (known-good endpoint)
+- Stored in `sessionStorage` only
+- Pass `?token=<PAT>` in the URL for seamless AAVA embed
