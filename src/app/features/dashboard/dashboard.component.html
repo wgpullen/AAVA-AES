@@ -21,7 +21,11 @@
       @for (stat of stats(); track stat.label) {
         <a class="stat-card" [routerLink]="stat.route">
           <div class="stat-icon" [style.color]="stat.color" [style.background]="stat.color + '22'">
-            <mat-icon>{{ stat.icon }}</mat-icon>
+            @if (stat.svgIcon) {
+              <mat-icon [svgIcon]="stat.svgIcon"></mat-icon>
+            } @else {
+              <mat-icon>{{ stat.icon }}</mat-icon>
+            }
           </div>
           <div class="stat-body">
             <div class="stat-value">{{ stat.value }}</div>
@@ -37,7 +41,11 @@
   <div class="quick-links">
     @for (link of quickLinks; track link.label) {
       <a class="quick-link" [routerLink]="link.route">
-        <mat-icon [style.color]="link.color">{{ link.icon }}</mat-icon>
+        @if (link.svgIcon) {
+          <mat-icon [svgIcon]="link.svgIcon" [style.color]="link.color"></mat-icon>
+        } @else {
+          <mat-icon [style.color]="link.color">{{ link.icon }}</mat-icon>
+        }
         <span>{{ link.label }}</span>
       </a>
     }

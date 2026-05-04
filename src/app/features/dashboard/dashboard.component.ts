@@ -13,6 +13,7 @@ interface StatCard {
   label: string;
   value: string | number;
   icon: string;
+  svgIcon?: string;
   color: string;
   route: string;
 }
@@ -39,7 +40,7 @@ export class DashboardComponent implements OnInit {
     { label: 'Build a Pipeline',     icon: 'account_tree', route: '/studio/builder',   color: '#a78bfa' },
     { label: 'View Projects',        icon: 'folder_open',  route: '/studio/projects',  color: '#fbbf24' },
     { label: 'Example Runs',         icon: 'history',      route: '/studio/examples',  color: '#34d399' },
-    { label: 'Ask the Assistant',    icon: 'smart_toy',    route: '/studio/assistant', color: '#f87171' },
+    { label: 'Ask the Assistant',    icon: '', svgIcon: 'aes-assistant', route: '/studio/assistant', color: '#f87171' },
   ];
 
   ngOnInit(): void {
@@ -53,7 +54,7 @@ export class DashboardComponent implements OnInit {
       this.loading.set(false);
       const grCount = (res.guardrails as any).totalNoOfRecords ?? (res.guardrails as any).guardrails?.length ?? 0;
       this.stats.set([
-        { label: 'Agents',         value: res.agents.totalNoOfRecords,    icon: 'smart_toy',    color: '#c4b5fd', route: '/studio/search' },
+        { label: 'Agents',         value: res.agents.totalNoOfRecords,    icon: 'android',      color: '#c4b5fd', route: '/studio/search' },
         { label: 'Workflows',      value: res.workflows.totalNoOfRecords, icon: 'account_tree', color: '#86efac', route: '/studio/search' },
         { label: 'Tools',          value: res.tools.totalNoOfRecords,     icon: 'build',        color: '#fcd34d', route: '/studio/search' },
         { label: 'Knowledge Bases',value: res.kbs.totalElements ?? 0,     icon: 'menu_book',    color: '#93c5fd', route: '/studio/search' },

@@ -88,7 +88,7 @@ import { RealmService, KnownRealm } from '../../../core/services/realm.service';
 
         <!-- Assistant shortcut -->
         <a routerLink="/studio/assistant" class="hdr-btn" matTooltip="AES Assistant">
-          <mat-icon>smart_toy</mat-icon>
+          <mat-icon svgIcon="aes-assistant"></mat-icon>
         </a>
       </div>
     </header>

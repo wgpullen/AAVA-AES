@@ -9,6 +9,7 @@ interface NavItem {
   path: string;
   label: string;
   icon: string;
+  svgIcon?: string;
   badge?: string;
 }
 
@@ -51,7 +52,11 @@ interface NavItem {
         @for (item of navItems; track item.path) {
           <a class="nav-item" [routerLink]="item.path" routerLinkActive="active"
              [matTooltip]="collapsed ? item.label : ''" matTooltipPosition="right" matRipple>
-            <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
+            @if (item.svgIcon) {
+              <mat-icon class="nav-icon" [svgIcon]="item.svgIcon"></mat-icon>
+            } @else {
+              <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
+            }
             @if (!collapsed) {
               <span class="nav-label">{{ item.label }}</span>
               @if (item.badge) {
@@ -100,7 +105,7 @@ export class SidebarComponent {
     { path: '/studio/builder',   label: 'Pipeline Builder', icon: 'account_tree' },
     { path: '/studio/projects',  label: 'Projects',         icon: 'folder_open' },
     { path: '/studio/examples',  label: 'Example Runs',     icon: 'history' },
-    { path: '/studio/assistant', label: 'AES Assistant',    icon: 'precision_manufacturing' },
+    { path: '/studio/assistant', label: 'AES Assistant',    icon: '', svgIcon: 'aes-assistant' },
   ];
 
   get userInitial(): string {
