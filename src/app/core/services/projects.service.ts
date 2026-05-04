@@ -103,4 +103,40 @@ export class ProjectsService {
       this.addFavorite(item);
     }
   }
+
+  addArtifactToUseCase(projectId: string, ucId: string, artifact: { id: number; type: string; name: string; status?: string }): void {
+    this._projects.update(prev => prev.map(p => {
+      if (p.id !== projectId) return p;
+      return {
+        ...p,
+        updatedAt: new Date(),
+        useCases: p.useCases.map(uc => {
+          if (uc.id !== ucId) return uc;
+          const already = uc.artifacts.some(a => a.id === artifact.id && a.type === artifact.type);
+          if (already) return uc;
+          return { ...uc, artifacts: [...uc.artifacts, artifact], updatedAt: new Date() };
+        }),
+      };
+    }));
+    this.persist();
+  }
+
+  removeArtifactFromUseCase(projectId: string, ucId: string, artifactId: number, type: string): void {
+    this._projects.update(prev => prev.map(p => {
+      if (p.id !== projectId) return p;
+      return {
+        ...p,
+        updatedAt: new Date(),
+        useCases: p.useCases.map(uc => {
+          if (uc.id !== ucId) return uc;
+          return {
+            ...uc,
+            artifacts: uc.artifacts.filter(a => !(a.id === artifactId && a.type === type)),
+            updatedAt: new Date(),
+          };
+        }),
+      };
+    }));
+    this.persist();
+  }
 }

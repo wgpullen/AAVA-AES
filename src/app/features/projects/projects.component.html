@@ -61,20 +61,104 @@
               <div class="use-cases">
                 @for (uc of project.useCases; track uc.id) {
                   <div class="use-case-item">
-                    <div class="uc-info">
-                      <mat-icon>hub</mat-icon>
-                      <div>
-                        <div class="uc-name">{{ uc.name }}</div>
-                        @if (uc.description) {
-                          <div class="uc-desc">{{ uc.description }}</div>
-                        }
+                    <div class="uc-header">
+                      <div class="uc-info">
+                        <mat-icon>hub</mat-icon>
+                        <div>
+                          <div class="uc-name">{{ uc.name }}</div>
+                          @if (uc.description) {
+                            <div class="uc-desc">{{ uc.description }}</div>
+                          }
+                        </div>
+                      </div>
+                      <div class="uc-header-actions">
+                        <button mat-icon-button class="add-artifact-btn"
+                                matTooltip="Add artifact to this use case"
+                                (click)="openPicker(project.id, uc.id)">
+                          <mat-icon>add_link</mat-icon>
+                        </button>
+                        <button mat-icon-button class="remove-btn"
+                                (click)="removeUseCase(project.id, uc.id, uc.name)"
+                                matTooltip="Remove use case">
+                          <mat-icon>close</mat-icon>
+                        </button>
                       </div>
                     </div>
-                    <button mat-icon-button class="remove-btn"
-                            (click)="removeUseCase(project.id, uc.id, uc.name)"
-                            matTooltip="Remove use case">
-                      <mat-icon>close</mat-icon>
-                    </button>
+
+                    <!-- Attached artifacts -->
+                    @if (uc.artifacts.length > 0) {
+                      <div class="uc-artifacts">
+                        @for (a of uc.artifacts; track a.id + a.type) {
+                          <div class="artifact-chip">
+                            <mat-icon class="artifact-chip-icon icon-{{ a.type.toLowerCase() }}">{{ typeIcon(a.type) }}</mat-icon>
+                            <span class="artifact-chip-name">{{ a.name }}</span>
+                            <span class="aes-type-chip {{ typeChipClass(a.type) }} chip-xs">{{ a.type }}</span>
+                            <button mat-icon-button class="detach-btn"
+                                    matTooltip="Remove artifact"
+                                    (click)="detachArtifact(project.id, uc.id, a.id, a.type, a.name)">
+                              <mat-icon>remove_circle_outline</mat-icon>
+                            </button>
+                          </div>
+                        }
+                      </div>
+                    }
+
+                    <!-- Artifact picker (inline, per use case) -->
+                    @if (pickerProjectId() === project.id && pickerUseCaseId() === uc.id) {
+                      <div class="artifact-picker aes-fade-in">
+                        <div class="picker-toolbar">
+                          <mat-form-field appearance="outline" class="picker-search">
+                            <mat-icon matPrefix>search</mat-icon>
+                            <input matInput [(ngModel)]="pickerQuery"
+                                   placeholder="Search artifacts…" />
+                          </mat-form-field>
+                          <mat-form-field appearance="outline" class="picker-type">
+                            <mat-select [(ngModel)]="pickerType">
+                              @for (t of artifactTypes; track t.value) {
+                                <mat-option [value]="t.value">{{ t.label }}</mat-option>
+                              }
+                            </mat-select>
+                          </mat-form-field>
+                          <button mat-icon-button (click)="closePicker()" matTooltip="Close">
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        </div>
+
+                        @if (!cache.isLoaded()) {
+                          <div class="picker-empty">
+                            <mat-icon>cloud_download</mat-icon>
+                            <span>Artifacts loading — visit Artifact Search first to cache them.</span>
+                          </div>
+                        } @else if (pickerResults().length === 0) {
+                          <div class="picker-empty">
+                            <mat-icon>search_off</mat-icon>
+                            <span>No matching artifacts.</span>
+                          </div>
+                        } @else {
+                          <div class="picker-list">
+                            @for (a of pickerResults(); track a.id + a.type) {
+                              <div class="picker-row"
+                                   [class.already-added]="isAttached(project.id, uc.id, a)"
+                                   (click)="attachArtifact(a)">
+                                <mat-icon class="picker-icon icon-{{ a.type.toLowerCase() }}">{{ typeIcon(a.type) }}</mat-icon>
+                                <div class="picker-info">
+                                  <div class="picker-name">{{ a.name }}</div>
+                                  @if (a.description) {
+                                    <div class="picker-desc">{{ a.description | slice:0:60 }}…</div>
+                                  }
+                                </div>
+                                <span class="aes-type-chip {{ typeChipClass(a.type) }} chip-xs">{{ a.type }}</span>
+                                @if (isAttached(project.id, uc.id, a)) {
+                                  <mat-icon class="already-icon">check_circle</mat-icon>
+                                } @else {
+                                  <mat-icon class="add-icon">add_circle_outline</mat-icon>
+                                }
+                              </div>
+                            }
+                          </div>
+                        }
+                      </div>
+                    }
                   </div>
                 }
 

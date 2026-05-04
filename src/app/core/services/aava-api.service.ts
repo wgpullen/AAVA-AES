@@ -139,6 +139,38 @@ export class AavaApiService {
     ));
   }
 
+  // ── Clone endpoints (KDog Tier 1) ────────────────────
+  cloneAgent(agentId: number): Observable<{ id: number }> {
+    return this.unwrap(this.http.post<any>(
+      `${this.base}/agents/clone`, { agentId }, { headers: this.headers() }
+    ));
+  }
+
+  cloneWorkflow(workflowId: number): Observable<{ id: number }> {
+    return this.unwrap(this.http.post<any>(
+      `${this.base}/workflows/clone`, { workflowId }, { headers: this.headers() }
+    ));
+  }
+
+  cloneTool(toolId: number): Observable<{ id: number }> {
+    return this.unwrap(this.http.post<any>(
+      `${this.base}/tools/userTools/clone`, { toolId }, { headers: this.headers() }
+    ));
+  }
+
+  cloneGuardrail(guardrailId: number): Observable<{ id: number }> {
+    return this.unwrap(this.http.post<any>(
+      `${this.base}/guardrails/clone`, { guardrailId }, { headers: this.headers() }
+    ));
+  }
+
+  // ── Single-artifact execution ──────────────────────
+  executeAgent(agentId: number, input: string): Observable<any> {
+    return this.unwrap(this.http.post<any>(
+      `${this.base}/agents/execute`, { agentId, input }, { headers: this.headers() }
+    ));
+  }
+
   cancelExecution(executionId: string): Observable<unknown> {
     return this.unwrap(this.http.post<any>(
       `${this.base}/admin/execution/cancel`,

@@ -1,6 +1,6 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -13,9 +13,9 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { CommonModule } from '@angular/common';
-import { debounceTime, distinctUntilChanged, Subject, switchMap, catchError, of, forkJoin } from 'rxjs';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { catchError, of } from 'rxjs';
 import { AavaApiService } from '../../core/services/aava-api.service';
+import { ArtifactCacheService } from '../../core/services/artifact-cache.service';
 import { ProjectsService } from '../../core/services/projects.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { ArtifactSummary, ArtifactType } from '../../core/models/artifact.models';
@@ -27,7 +27,7 @@ type SortField = 'name' | 'type' | 'status' | 'createdAt';
   selector: 'app-search',
   standalone: true,
   imports: [
-    FormsModule, CommonModule, RouterLink,
+    FormsModule, CommonModule,
     MatFormFieldModule, MatInputModule, MatSelectModule,
     MatButtonModule, MatIconModule, MatTableModule,
     MatChipsModule, MatTooltipModule, MatProgressSpinnerModule,
@@ -37,26 +37,20 @@ type SortField = 'name' | 'type' | 'status' | 'createdAt';
   templateUrl: './search.component.html',
   styleUrl: './search.component.scss',
 })
-export class SearchComponent implements OnInit {
+export class SearchComponent {
   private api      = inject(AavaApiService);
+  readonly cache   = inject(ArtifactCacheService);
   private projects = inject(ProjectsService);
   private notify   = inject(NotificationService);
+  private router   = inject(Router);
 
   query        = '';
   typeFilter: ArtifactType | 'ALL' = 'ALL';
   statusFilter: 'ALL' | 'APPROVED' | 'CREATED' | 'IN_REVIEW' = 'ALL';
   sortField    = signal<SortField>('createdAt');
   sortDir      = signal<'asc' | 'desc'>('desc');
-  page         = signal(0);
-  pageSize  = 20;
 
-  loading  = signal(false);
-  allItems = signal<ArtifactSummary[]>([]);
-  total    = signal(0);
-  hasMore  = signal(false);
-
-  private search$ = new Subject<void>();
-  private destroyed = takeUntilDestroyed();
+  cloningId    = signal<number | null>(null);
 
   displayedColumns = ['favorite', 'name', 'type', 'status', 'createdAt', 'actions'];
 
@@ -69,11 +63,18 @@ export class SearchComponent implements OnInit {
     { value: 'GUARDRAIL', label: 'Guardrails' },
   ];
 
+  /** All filtering, searching, and sorting done locally against the cache — zero API calls */
   get filtered(): ArtifactSummary[] {
-    let items = [...this.allItems()];
-    if (this.typeFilter !== 'ALL') items = items.filter(i => i.type === this.typeFilter);
+    let items = this.cache.allArtifacts();
+    if (this.typeFilter !== 'ALL')   items = items.filter(i => i.type === this.typeFilter);
     if (this.statusFilter !== 'ALL') items = items.filter(i => i.status === this.statusFilter);
-    items.sort((a, b) => {
+    if (this.query.trim()) {
+      const q = this.query.toLowerCase();
+      items = items.filter(i =>
+        i.name?.toLowerCase().includes(q) || i.description?.toLowerCase().includes(q)
+      );
+    }
+    items = [...items].sort((a, b) => {
       const dir = this.sortDir() === 'asc' ? 1 : -1;
       const field = this.sortField();
       if (field === 'createdAt') {
@@ -84,74 +85,7 @@ export class SearchComponent implements OnInit {
     return items;
   }
 
-  ngOnInit(): void {
-    this.search$.pipe(
-      debounceTime(300),
-      distinctUntilChanged(),
-      this.destroyed,
-    ).subscribe(() => {
-      this.loading.set(true);
-      this.loadArtifacts();
-    });
-    this.search$.next();
-  }
-
-  private loadArtifacts() {
-    const q = this.query;
-    return forkJoin({
-      agents:     this.api.listAgents(1, 50, q).pipe(catchError(() => of({ agentDetails: [], totalNoOfRecords: 0 }))),
-      workflows:  this.api.listUserWorkflows(1, 50, q).pipe(catchError(() => of({ workFlowDetails: [], totalNoOfRecords: 0 }))),
-      tools:      this.api.listUserTools(1, 50, q).pipe(catchError(() => of({ userToolDetails: [], totalNoOfRecords: 0 }))),
-      guardrails: this.api.listGuardrails(1, 50, q).pipe(catchError(() => of({ guardrails: [], totalNoOfRecords: 0 }))),
-      kbs:        this.api.listKnowledgeBases(0, 50, q).pipe(catchError(() => of({ data: [], totalElements: 0 }))),
-    }).pipe(
-      catchError(() => { this.notify.error('Failed to load artifacts'); return of(null); }),
-    ).subscribe(res => {
-      this.loading.set(false);
-      if (!res) return;
-
-      const items: ArtifactSummary[] = [
-        ...(res.agents.agentDetails ?? []).map((a: any) => ({
-          id: a.id, name: a.name, type: 'AGENT' as ArtifactType,
-          status: a.status, description: a.description,
-          createdAt: a.createdAt, updatedAt: a.updatedAt,
-        })),
-        ...(res.workflows.workFlowDetails ?? []).map((w: any) => ({
-          id: w.id, name: w.name, type: 'WORKFLOW' as ArtifactType,
-          status: w.status, description: w.description,
-          createdAt: w.createdAt, updatedAt: w.updatedAt,
-        })),
-        ...(res.tools.userToolDetails ?? []).map((t: any) => ({
-          id: t.id, name: t.name, type: 'TOOL' as ArtifactType,
-          status: t.status, description: t.description,
-          createdAt: t.createdAt, updatedAt: t.updatedAt,
-        })),
-        // API may return guardrails under `guardrails`, `guardrailsList`, or directly as array
-        ...(((res.guardrails as any).guardrails ?? (res.guardrails as any).guardrailsList ?? (Array.isArray(res.guardrails) ? res.guardrails : [])) as any[]).map((g: any) => ({
-          id: g.id ?? g.guardrailId, name: g.name, type: 'GUARDRAIL' as ArtifactType,
-          status: g.status, description: g.description,
-          createdAt: g.createdAt ?? g.modifiedAt, updatedAt: g.updatedAt ?? g.modifiedAt,
-        })),
-        ...(res.kbs.data ?? []).map((k: any) => ({
-          id: k.id, name: k.knowledgeBase ?? k.name, type: 'KB' as ArtifactType,
-          status: k.status, description: k.description,
-          createdAt: k.createdAt, updatedAt: k.updatedAt,
-        })),
-      ];
-
-      // Sort most-recent-first by default
-      items.sort((a, b) =>
-        new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
-      );
-
-      this.allItems.set(items);
-      this.total.set(items.length);
-    });
-  }
-
-  onSearch(): void { this.page.set(0); this.search$.next(); }
-
-  ngModelChange(): void { this.onSearch(); }
+  onSearch(): void { /* filtering is reactive via getter — nothing to call */ }
 
   setSort(field: SortField): void {
     if (this.sortField() === field) {
@@ -162,19 +96,18 @@ export class SearchComponent implements OnInit {
     }
   }
 
+  reload(): void { this.cache.preload(); }
+
   isFavorite(item: ArtifactSummary): boolean {
     return this.projects.isFavorite(item.id, item.type);
   }
 
   toggleFavorite(item: ArtifactSummary): void {
     this.projects.toggleFavorite({ artifactId: item.id, type: item.type, name: item.name });
-    const msg = this.isFavorite(item) ? `Removed from favorites` : `Added to favorites`;
-    this.notify.info(msg);
+    this.notify.info(this.isFavorite(item) ? 'Added to favorites' : 'Removed from favorites');
   }
 
-  typeChipClass(type: ArtifactType): string {
-    return type.toLowerCase();
-  }
+  typeChipClass(type: ArtifactType): string { return type.toLowerCase(); }
 
   typeIcon(type: ArtifactType): string {
     const m: Record<string, string> = {
@@ -184,12 +117,51 @@ export class SearchComponent implements OnInit {
     return m[type] ?? 'circle';
   }
 
-  executeWorkflow(item: ArtifactSummary): void {
-    // Navigate to execute tab with pre-selected workflow
-    this.notify.info(`Navigate to Execute tab to run "${item.name}"`);
+  // ── Type-specific actions ─────────────────────────────
+
+  runWorkflow(item: ArtifactSummary): void {
+    this.router.navigate(['/studio/execute'], { queryParams: { workflowId: item.id } });
+  }
+
+  testAgent(item: ArtifactSummary): void {
+    // Navigate to execute with agent context (future: dedicated agent-test panel)
+    this.notify.info(`Testing agent "${item.name}" — enter a prompt in Execute & Watch`);
+    this.router.navigate(['/studio/execute']);
+  }
+
+  testTool(item: ArtifactSummary): void {
+    this.notify.info(`Tool testing: open "${item.name}" in the Pipeline Builder to test it in context`);
+  }
+
+  testGuardrail(item: ArtifactSummary): void {
+    this.notify.info(`Guardrail validation for "${item.name}" — use POST /guardrails/validate via the API`);
   }
 
   cloneArtifact(item: ArtifactSummary): void {
-    this.notify.info(`Clone functionality for "${item.name}" — use the builder to create a copy`);
+    if (this.cloningId() === item.id) return;
+    this.cloningId.set(item.id);
+
+    let clone$;
+    switch (item.type) {
+      case 'AGENT':     clone$ = this.api.cloneAgent(item.id);    break;
+      case 'WORKFLOW':  clone$ = this.api.cloneWorkflow(item.id); break;
+      case 'TOOL':      clone$ = this.api.cloneTool(item.id);     break;
+      case 'GUARDRAIL': clone$ = this.api.cloneGuardrail(item.id); break;
+      default:
+        this.notify.info(`Clone not supported for type ${item.type}`);
+        this.cloningId.set(null);
+        return;
+    }
+
+    clone$.pipe(catchError(err => {
+      this.notify.error(`Clone failed: ${err.message}`);
+      return of(null);
+    })).subscribe(res => {
+      this.cloningId.set(null);
+      if (res) {
+        this.notify.success(`"${item.name}" cloned successfully`);
+        this.cache.preload(); // refresh cache to show the new clone
+      }
+    });
   }
 }

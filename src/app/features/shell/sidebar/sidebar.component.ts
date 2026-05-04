@@ -95,11 +95,12 @@ export class SidebarComponent {
   navItems: NavItem[] = [
     { path: '/studio/dashboard', label: 'Dashboard',        icon: 'dashboard' },
     { path: '/studio/search',    label: 'Artifact Search',  icon: 'manage_search' },
+    { path: '/studio/favorites', label: 'Favorites',        icon: 'star' },
     { path: '/studio/execute',   label: 'Execute & Watch',  icon: 'play_circle' },
     { path: '/studio/builder',   label: 'Pipeline Builder', icon: 'account_tree' },
     { path: '/studio/projects',  label: 'Projects',         icon: 'folder_open' },
     { path: '/studio/examples',  label: 'Example Runs',     icon: 'history' },
-    { path: '/studio/assistant', label: 'AES Assistant',    icon: 'smart_toy' },
+    { path: '/studio/assistant', label: 'AES Assistant',    icon: 'precision_manufacturing' },
   ];
 
   get userInitial(): string {

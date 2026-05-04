@@ -11,6 +11,8 @@ import { AavaApiService } from '../../core/services/aava-api.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { RealmService } from '../../core/services/realm.service';
 
+type Tab = 'workflow' | 'lists';
+
 interface ExecRun {
   id: string;
   workflowName: string;
@@ -25,6 +27,15 @@ interface ExecRun {
   finalOutput?: string;
   realmId?: string;
   expanded: boolean;
+}
+
+interface AdminList {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt?: string;
+  artifacts?: { id: number; type: string; name: string; status?: string }[];
+  itemCount?: number;
 }
 
 @Component({
@@ -43,9 +54,11 @@ export class ExamplesComponent implements OnInit {
   private router = inject(Router);
   realm          = inject(RealmService);
 
+  activeTab = signal<Tab>('workflow');
+
+  // ── Workflow Executions tab ───────────────────────────
   loading = signal(true);
   runs    = signal<ExecRun[]>([]);
-
   statusFilter: string = 'ALL';
 
   get filtered(): ExecRun[] {
@@ -54,22 +67,34 @@ export class ExamplesComponent implements OnInit {
     return r.filter(x => x.status === this.statusFilter);
   }
 
+  // ── My Lists tab ──────────────────────────────────────
+  listsLoading = signal(false);
+  listsLoaded  = signal(false);
+  lists        = signal<AdminList[]>([]);
+  expandedList = signal<string | null>(null);
+
   ngOnInit(): void {
     this.loadRuns();
   }
 
+  switchTab(tab: Tab): void {
+    this.activeTab.set(tab);
+    if (tab === 'lists' && !this.listsLoaded()) {
+      this.loadLists();
+    }
+  }
+
+  // ── Workflow Executions ───────────────────────────────
+
   loadRuns(): void {
     this.loading.set(true);
 
-    // If ALL realms selected, fetch from each known realm in parallel
     const realmIds = this.realm.isAll()
       ? this.realm.realmIds()
       : [this.realm.active()];
 
     const fetches = realmIds.map(rid =>
-      this.api.listWorkflowExecutionsForRealm(rid, 1, 100).pipe(
-        catchError(() => of(null)),
-      )
+      this.api.listWorkflowExecutionsForRealm(rid, 1, 100).pipe(catchError(() => of(null)))
     );
 
     forkJoin(fetches).subscribe(results => {
@@ -101,7 +126,6 @@ export class ExamplesComponent implements OnInit {
         });
       });
 
-      // Sort newest first
       allRuns.sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
       this.runs.set(allRuns);
     });
@@ -167,6 +191,47 @@ export class ExamplesComponent implements OnInit {
       case 'FAILED':    return 'failed';
       case 'RUNNING':   return 'running';
       default:          return '';
+    }
+  }
+
+  // ── My Lists ──────────────────────────────────────────
+
+  loadLists(): void {
+    this.listsLoading.set(true);
+    this.api.getAdminLists().pipe(catchError(() => of([]))).subscribe((res: any) => {
+      this.listsLoading.set(false);
+      this.listsLoaded.set(true);
+      const raw: any[] = res?.data ?? res?.lists ?? (Array.isArray(res) ? res : []);
+      this.lists.set(raw.map((l: any) => ({
+        id: l.id ?? l.listId ?? String(Math.random()),
+        name: l.name ?? l.listName ?? 'Unnamed List',
+        description: l.description ?? '',
+        createdAt: l.createdAt,
+        artifacts: l.artifacts ?? l.items ?? [],
+        itemCount: l.itemCount ?? l.artifactCount ?? (l.artifacts ?? l.items ?? []).length,
+      })));
+    });
+  }
+
+  toggleList(id: string): void {
+    this.expandedList.update(cur => cur === id ? null : id);
+  }
+
+  typeIcon(type: string): string {
+    const m: Record<string, string> = {
+      AGENT: 'smart_toy', WORKFLOW: 'account_tree',
+      TOOL: 'build', KB: 'menu_book', GUARDRAIL: 'security',
+    };
+    return m[type] ?? 'circle';
+  }
+
+  typeChipClass(type: string): string { return type.toLowerCase(); }
+
+  runFromList(artifact: any): void {
+    if (artifact.type === 'WORKFLOW') {
+      this.router.navigate(['/studio/execute'], { queryParams: { workflowId: artifact.id } });
+    } else {
+      this.notify.info(`Navigate to Execute & Watch to run this artifact`);
     }
   }
 }

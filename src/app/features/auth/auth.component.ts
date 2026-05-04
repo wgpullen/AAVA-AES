@@ -9,6 +9,7 @@ import { catchError, of } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { RealmService } from '../../core/services/realm.service';
 import { NotificationService } from '../../core/services/notification.service';
+import { ArtifactCacheService } from '../../core/services/artifact-cache.service';
 import { environment } from '../../../environments/environment';
 
 interface RealmOption {
@@ -52,6 +53,7 @@ export class AuthComponent {
 
   private auth   = inject(AuthService);
   private realm  = inject(RealmService);
+  private cache  = inject(ArtifactCacheService);
   private http   = inject(HttpClient);
   private router = inject(Router);
   private notify = inject(NotificationService);
@@ -170,7 +172,8 @@ export class AuthComponent {
       this.auth.setUser({ id: 0, name, email, role, realmId: realm });
       this.loading.set(false);
       this.notify.success(`Welcome, ${name}!`);
-      this.router.navigate(['/studio/search']);
+      this.cache.preload(); // pre-load all artifacts in background immediately after login
+      this.router.navigate(['/studio/dashboard']);
     });
   }
 }

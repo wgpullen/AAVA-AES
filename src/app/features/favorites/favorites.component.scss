@@ -1,0 +1,97 @@
+.favs-page { padding: 0; height: 100%; overflow-y: auto; }
+
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--aes-border);
+  background: var(--aes-bg-elevated);
+
+  > mat-icon { font-size: 32px; width: 32px; height: 32px; color: #f59e0b; }
+
+  h2 { margin: 0 0 2px; font-size: 18px; font-weight: 700; color: var(--aes-text-primary); }
+  p  { margin: 0; font-size: 12px; color: var(--aes-text-muted); }
+}
+
+.groups {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.type-group {
+  background: var(--aes-bg-card);
+  border: 1px solid var(--aes-border);
+  border-radius: var(--aes-radius-lg);
+  overflow: hidden;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--aes-bg-elevated);
+  border-bottom: 1px solid var(--aes-border);
+}
+
+.group-icon { font-size: 18px; width: 18px; height: 18px; }
+.icon-agent     { color: #818cf8; }
+.icon-workflow  { color: var(--aes-accent); }
+.icon-tool      { color: #34d399; }
+.icon-kb        { color: #f59e0b; }
+.icon-guardrail { color: #f87171; }
+
+.group-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--aes-text-primary);
+  flex: 1;
+}
+
+.group-count {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--aes-accent) 15%, transparent);
+  color: var(--aes-accent);
+  font-weight: 600;
+}
+
+.fav-list { display: flex; flex-direction: column; }
+
+.fav-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--aes-border);
+  transition: background 0.15s;
+
+  &:last-child { border-bottom: none; }
+  &:hover { background: var(--aes-bg-hover); }
+}
+
+.fav-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fav-star { font-size: 16px; width: 16px; height: 16px; color: #f59e0b; }
+
+.fav-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--aes-text-primary);
+}
+
+.fav-meta { font-size: 11px; color: var(--aes-text-muted); margin-top: 2px; }
+
+.fav-actions { display: flex; align-items: center; gap: 2px; }
+
+.action-run    { color: var(--aes-accent) !important; }
+.action-btn    { color: var(--aes-text-muted) !important; }
+.action-remove { color: #f59e0b !important; }

@@ -11,7 +11,7 @@ const authGuard = () => {
 };
 
 export const routes: Routes = [
-  { path: '', redirectTo: 'studio/search', pathMatch: 'full' },
+  { path: '', redirectTo: 'studio/dashboard', pathMatch: 'full' },
   {
     path: 'auth',
     loadComponent: () => import('./features/auth/auth.component').then(m => m.AuthComponent),
@@ -21,7 +21,7 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () => import('./features/shell/shell.component').then(m => m.ShellComponent),
     children: [
-      { path: '', redirectTo: 'search', pathMatch: 'full' },
+      { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       {
         path: 'dashboard',
         loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent),
@@ -51,6 +51,11 @@ export const routes: Routes = [
         path: 'examples',
         loadComponent: () => import('./features/examples/examples.component').then(m => m.ExamplesComponent),
         title: 'Example Runs · AES',
+      },
+      {
+        path: 'favorites',
+        loadComponent: () => import('./features/favorites/favorites.component').then(m => m.FavoritesComponent),
+        title: 'Favorites · AES',
       },
       {
         path: 'assistant',

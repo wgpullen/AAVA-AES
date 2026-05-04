@@ -1,0 +1,61 @@
+<div class="favs-page aes-fade-in">
+  <div class="page-header">
+    <mat-icon>star</mat-icon>
+    <div>
+      <h2>Favorites</h2>
+      <p>{{ favorites().length }} starred artifact{{ favorites().length !== 1 ? 's' : '' }} across all types</p>
+    </div>
+  </div>
+
+  @if (favorites().length === 0) {
+    <div class="aes-empty">
+      <mat-icon>star_border</mat-icon>
+      <p>No favorites yet. Star artifacts from Artifact Search to pin them here for instant access.</p>
+    </div>
+  } @else {
+    <div class="groups">
+      @for (group of grouped(); track group.type) {
+        <div class="type-group">
+          <div class="group-header">
+            <mat-icon class="group-icon icon-{{ group.type.toLowerCase() }}">{{ typeIcon(group.type) }}</mat-icon>
+            <span class="group-label">{{ typeLabel(group.type) }}</span>
+            <span class="group-count">{{ group.items.length }}</span>
+          </div>
+
+          <div class="fav-list">
+            @for (fav of group.items; track fav.artifactId) {
+              <div class="fav-card">
+                <div class="fav-left">
+                  <mat-icon class="fav-star">star</mat-icon>
+                  <div class="fav-info">
+                    <div class="fav-name">{{ fav.name }}</div>
+                    <div class="fav-meta">Starred {{ fav.addedAt | date:'MMM d, y' }}</div>
+                  </div>
+                </div>
+                <div class="fav-actions">
+                  @if (fav.type === 'WORKFLOW') {
+                    <button mat-icon-button class="action-run"
+                            matTooltip="Run this workflow"
+                            (click)="runWorkflow(fav)">
+                      <mat-icon>play_circle</mat-icon>
+                    </button>
+                  }
+                  <button mat-icon-button class="action-btn"
+                          matTooltip="Find in Artifact Search"
+                          (click)="goToSearch(fav)">
+                    <mat-icon>open_in_new</mat-icon>
+                  </button>
+                  <button mat-icon-button class="action-remove"
+                          matTooltip="Remove from favorites"
+                          (click)="remove(fav)">
+                    <mat-icon>star</mat-icon>
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>
