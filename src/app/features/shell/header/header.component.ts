@@ -1,5 +1,5 @@
 import { Component, Input, inject } from '@angular/core';
-import { RouterLink, ActivatedRoute, Router, NavigationEnd } from '@angular/router';
+import { RouterLink, Router, NavigationEnd } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -7,6 +7,7 @@ import { CommonModule } from '@angular/common';
 import { filter, map } from 'rxjs';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { AuthService } from '../../../core/services/auth.service';
+import { ThemeService } from '../../../core/services/theme.service';
 
 @Component({
   selector: 'app-header',
@@ -18,11 +19,19 @@ import { AuthService } from '../../../core/services/auth.service';
         <div class="page-title">{{ pageTitle() }}</div>
       </div>
       <div class="header-right">
-        <div class="realm-badge">
+        <div class="realm-pill">
           <mat-icon>domain</mat-icon>
           Realm {{ auth.realm() }}
         </div>
-        <a routerLink="/studio/assistant" mat-icon-button matTooltip="AES Assistant" class="header-btn">
+
+        <!-- Dark / Light mode toggle -->
+        <button class="hdr-btn" (click)="theme.toggle()"
+                [matTooltip]="theme.isDark() ? 'Switch to light mode' : 'Switch to dark mode'">
+          <mat-icon>{{ theme.isDark() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+        </button>
+
+        <a routerLink="/studio/assistant" class="hdr-btn"
+           matTooltip="AES Assistant">
           <mat-icon>smart_toy</mat-icon>
         </a>
       </div>
@@ -49,13 +58,14 @@ import { AuthService } from '../../../core/services/auth.service';
     .header-right {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
-    .realm-badge {
+    .realm-pill {
       display: flex;
       align-items: center;
       gap: 4px;
       font-size: 11px;
+      font-weight: 500;
       color: var(--aes-text-muted);
       background: var(--aes-bg-elevated);
       padding: 4px 10px;
@@ -63,13 +73,28 @@ import { AuthService } from '../../../core/services/auth.service';
       border: 1px solid var(--aes-border);
       mat-icon { font-size: 14px; width: 14px; height: 14px; }
     }
-    .header-btn { color: var(--aes-text-secondary); }
-    .header-btn:hover { color: var(--aes-accent); }
+    .hdr-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: var(--aes-radius-md);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--aes-text-secondary);
+      text-decoration: none;
+      transition: color 0.15s, background 0.15s;
+      &:hover { color: var(--aes-accent); background: var(--aes-bg-hover); }
+      mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    }
   `],
 })
 export class HeaderComponent {
   @Input() sidebarCollapsed = false;
-  auth = inject(AuthService);
+  auth  = inject(AuthService);
+  theme = inject(ThemeService);
 
   private router = inject(Router);
 

@@ -126,10 +126,11 @@ export class SearchComponent implements OnInit {
           status: t.status, description: t.description,
           createdAt: t.createdAt, updatedAt: t.updatedAt,
         })),
-        ...(res.guardrails.guardrails ?? []).map((g: any) => ({
-          id: g.id, name: g.name, type: 'GUARDRAIL' as ArtifactType,
+        // API may return guardrails under `guardrails`, `guardrailsList`, or directly as array
+        ...(((res.guardrails as any).guardrails ?? (res.guardrails as any).guardrailsList ?? (Array.isArray(res.guardrails) ? res.guardrails : [])) as any[]).map((g: any) => ({
+          id: g.id ?? g.guardrailId, name: g.name, type: 'GUARDRAIL' as ArtifactType,
           status: g.status, description: g.description,
-          createdAt: g.createdAt, updatedAt: g.updatedAt,
+          createdAt: g.createdAt ?? g.modifiedAt, updatedAt: g.updatedAt ?? g.modifiedAt,
         })),
         ...(res.kbs.data ?? []).map((k: any) => ({
           id: k.id, name: k.knowledgeBase ?? k.name, type: 'KB' as ArtifactType,
