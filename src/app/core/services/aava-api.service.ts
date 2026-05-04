@@ -139,6 +139,14 @@ export class AavaApiService {
     ));
   }
 
+  cancelExecution(executionId: string): Observable<unknown> {
+    return this.unwrap(this.http.post<any>(
+      `${this.base}/admin/execution/cancel`,
+      { executionId, workflowExecutionId: executionId },
+      { headers: this.headers() }
+    ));
+  }
+
   getWorkflowDetails(workflowId: number): Observable<any> {
     return this.unwrap(this.http.get<any>(
       `${this.base}/workflows/${workflowId}`, { headers: this.headers() }

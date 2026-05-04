@@ -20,29 +20,40 @@
                 <mat-option [value]="wf.id">
                   <span class="wf-option">
                     <span class="wf-name">{{ wf.name }}</span>
-                    <span class="wf-meta">{{ wf.agentCount }} agent{{ wf.agentCount !== 1 ? 's' : '' }} · {{ wf.status }}</span>
+                    <span class="wf-meta">
+                      {{ wf.agentCount }} agent{{ wf.agentCount !== 1 ? 's' : '' }}
+                      @if (wf.status) { · {{ wf.status }} }
+                    </span>
                   </span>
                 </mat-option>
               }
             </mat-select>
           </mat-form-field>
 
+          <!-- Agent detail loading state -->
           @if (loadingDetails()) {
             <div class="detail-loading">
               <mat-spinner diameter="14" />
-              <span>Loading agent details…</span>
+              <span>Loading pipeline details…</span>
             </div>
           }
+
+          <!-- Agent pipeline preview (after detail loaded) -->
           @if (!loadingDetails() && selectedWf && (selectedWf.agentCount ?? 0) > 0) {
             <div class="agent-preview">
-              <mat-icon>account_tree</mat-icon>
-              <span>{{ selectedWf.agentCount }} agent{{ selectedWf.agentCount !== 1 ? 's' : '' }} in pipeline</span>
+              <div class="agent-preview-header">
+                <mat-icon>account_tree</mat-icon>
+                <span>{{ selectedWf.agentCount }} agent{{ selectedWf.agentCount !== 1 ? 's' : '' }} in pipeline</span>
+              </div>
               @if (selectedWf.agentNames?.length) {
-                <span class="agent-names-preview">
-                  @for (n of (selectedWf.agentNames ?? []); track n; let last = $last) {
-                    <span class="agent-chip">{{ n }}</span>
+                <div class="agent-names-preview">
+                  @for (n of (selectedWf.agentNames ?? []); track n; let i = $index) {
+                    <div class="agent-name-chip">
+                      <span class="chip-serial">{{ i + 1 }}</span>
+                      <span class="chip-name">{{ n }}</span>
+                    </div>
                   }
-                </span>
+                </div>
               }
             </div>
           }
@@ -62,7 +73,7 @@
           <div class="section-label">Input Text <span class="optional">(optional)</span></div>
           <mat-form-field appearance="outline" class="full-width">
             <textarea matInput [(ngModel)]="inputText" rows="4"
-                      placeholder="Enter context, instructions, or problem statement for this run..."></textarea>
+                      placeholder="Enter context, instructions, or problem statement for this run…"></textarea>
           </mat-form-field>
         </div>
 
@@ -83,18 +94,31 @@
                  accept=".zip,.pdf,.txt,.md,.csv,.json" />
         </div>
 
-        <!-- Run button -->
-        <button mat-flat-button color="primary" class="run-btn"
-                [disabled]="!canRun"
-                (click)="run$()">
+        <!-- Run / Cancel buttons -->
+        <div class="action-row">
+          <button mat-flat-button color="primary" class="run-btn"
+                  [disabled]="!canRun"
+                  (click)="run$()">
+            @if (loadingDetails()) {
+              <mat-spinner diameter="18" />
+              <span>Loading pipeline…</span>
+            } @else if (isRunning()) {
+              <mat-spinner diameter="18" />
+              <span>Executing…</span>
+            } @else {
+              <mat-icon>electric_bolt</mat-icon>
+              <span>Execute Workflow</span>
+            }
+          </button>
+
           @if (isRunning()) {
-            <mat-spinner diameter="18" />
-            Executing...
-          } @else {
-            <mat-icon>electric_bolt</mat-icon>
-            Execute Workflow
+            <button mat-stroked-button class="cancel-btn" (click)="cancel()"
+                    matTooltip="Cancel this execution">
+              <mat-icon>stop_circle</mat-icon>
+              Cancel
+            </button>
           }
-        </button>
+        </div>
 
         @if (run() && !isRunning()) {
           <button mat-stroked-button class="reset-btn" (click)="reset()">
@@ -104,12 +128,12 @@
       </div>
     </div>
 
-    <!-- Right panel: Live progress -->
+    <!-- Right panel: Live pipeline progress -->
     <div class="progress-panel">
       @if (!run()) {
         <div class="aes-empty">
           <mat-icon>play_circle_outline</mat-icon>
-          <p>Configure a workflow on the left and click Execute to watch your agents work in real time.</p>
+          <p>Select a workflow and click Execute to watch your agents run in real time.</p>
         </div>
       } @else {
         <!-- Run header -->
@@ -124,6 +148,9 @@
               <div class="run-meta">
                 <span class="aes-badge {{ run()!.status.toLowerCase() }}">{{ run()!.status }}</span>
                 <span class="run-time">{{ elapsedTime() }}</span>
+                <span class="run-agent-count">
+                  {{ completedAgentCount() }} / {{ agents().length }} agents
+                </span>
               </div>
             </div>
           </div>
@@ -134,51 +161,76 @@
           </div>
         </div>
 
-        <!-- Agent pipeline -->
+        <!-- Sequential agent pipeline — cards unlock one-by-one -->
         <div class="agent-pipeline">
-          @for (agent of agents(); track agent.index; let i = $index) {
+          @for (agent of visibleAgents(); track agent.index; let i = $index) {
             <div class="agent-card" [class]="'agent-card--' + agent.status">
               <div class="agent-card-left">
-                <div class="agent-step">{{ i + 1 }}</div>
-                @if (i < agents().length - 1) {
+                <div class="agent-step">{{ agent.index + 1 }}</div>
+                @if (i < visibleAgents().length - 1 || agent.status === 'done') {
                   <div class="agent-connector" [class.done]="agent.status === 'done'"></div>
                 }
               </div>
               <div class="agent-card-body">
                 <div class="agent-card-header">
                   <div class="agent-card-name">{{ agent.name }}</div>
-                  <mat-icon class="agent-status-icon" [class]="'status-icon--' + agent.status">
+                  <mat-icon class="agent-status-icon" [class]="'agent-status-icon--' + agent.status">
                     {{ agentStatusIcon(agent.status) }}
                   </mat-icon>
                 </div>
 
                 @if (agent.status === 'running') {
                   <mat-progress-bar mode="indeterminate" class="agent-progress" />
-                  <div class="agent-running-label">Processing...</div>
+                  <div class="agent-running-label">Processing… watching for completion</div>
                 }
 
                 @if (agent.status === 'done' && agent.completedAt) {
                   <div class="agent-done-label">
-                    Completed in {{ ((agent.completedAt.getTime() - (agent.startedAt?.getTime() ?? agent.completedAt.getTime())) / 1000).toFixed(1) }}s
+                    ✓ Completed
+                    @if (agent.startedAt) {
+                      in {{ ((agent.completedAt.getTime() - agent.startedAt.getTime()) / 1000).toFixed(1) }}s
+                    }
                   </div>
                 }
 
-                @if (agent.error) {
-                  <div class="agent-error">{{ agent.error }}</div>
+                @if (agent.status === 'error') {
+                  <div class="agent-error">
+                    <mat-icon>error_outline</mat-icon>
+                    {{ agent.error ?? 'Agent encountered an error' }}
+                  </div>
                 }
 
                 @if (agent.output && agent.status === 'done') {
                   <details class="agent-output-details">
-                    <summary>View output</summary>
-                    <div class="agent-output">{{ agent.output | slice:0:500 }}{{ (agent.output?.length ?? 0) > 500 ? '...' : '' }}</div>
+                    <summary>View output ({{ agent.output.length }} chars)</summary>
+                    <div class="agent-output">{{ agent.output | slice:0:800 }}{{ agent.output.length > 800 ? '…' : '' }}</div>
                   </details>
                 }
               </div>
             </div>
           }
+
+          <!-- "Up next" hint — name of next locked agent -->
+          @if (nextAgentName() && isRunning()) {
+            <div class="next-agent-hint">
+              <div class="next-agent-line"></div>
+              <div class="next-agent-label">
+                <mat-icon>schedule</mat-icon>
+                Up next: <strong>{{ nextAgentName() }}</strong>
+              </div>
+            </div>
+          }
+
+          <!-- Completion summary when all done -->
+          @if (run()!.status === ExecutionStatus.COMPLETED) {
+            <div class="completion-banner aes-fade-in">
+              <mat-icon>check_circle</mat-icon>
+              All {{ agents().length }} agents completed · {{ elapsedTime() }} total
+            </div>
+          }
         </div>
 
-        <!-- Final result -->
+        <!-- Final result output -->
         @if (showResults() && finalOutput()) {
           <div class="results-section aes-fade-in">
             <div class="results-header">
@@ -192,5 +244,6 @@
         }
       }
     </div>
+
   </div>
 </div>
