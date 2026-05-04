@@ -1,9 +1,5 @@
 <div class="auth-root">
-
-  <!-- Animated background grid -->
   <div class="bg-grid"></div>
-
-  <!-- Floating glow orbs -->
   <div class="orb orb-1"></div>
   <div class="orb orb-2"></div>
   <div class="orb orb-3"></div>
@@ -67,40 +63,75 @@
           </div>
           <div class="form-title-block">
             <h2 class="form-title">Connect to AAVA</h2>
-            <p class="form-subtitle">Enter your Personal Access Token to launch the studio</p>
+            <p class="form-subtitle">Enter your PAT, load your realms, then launch</p>
           </div>
         </div>
 
-        <form (ngSubmit)="connect()" class="form-body">
+        <div class="form-body">
 
+          <!-- Step 1: PAT Token -->
           <div class="field-group">
-            <label class="field-label">Personal Access Token</label>
+            <label class="field-label">
+              <span class="step-num">1</span>
+              Personal Access Token
+            </label>
             <div class="input-wrapper" [class.has-value]="token">
               <mat-icon class="input-icon">key</mat-icon>
               <input [(ngModel)]="token" name="token"
                      [type]="showToken ? 'text' : 'password'"
                      placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6Ikp..."
                      class="custom-input"
-                     autocomplete="off"
-                     required />
+                     autocomplete="off" />
               <button type="button" class="toggle-vis" (click)="showToken = !showToken"
-                      [title]="showToken ? 'Hide token' : 'Show token'">
+                      [title]="showToken ? 'Hide' : 'Show'">
                 <mat-icon>{{ showToken ? 'visibility_off' : 'visibility' }}</mat-icon>
               </button>
             </div>
           </div>
 
-          <div class="field-group">
-            <label class="field-label">Realm ID</label>
-            <div class="input-wrapper" [class.has-value]="realmId">
-              <mat-icon class="input-icon">domain</mat-icon>
-              <input [(ngModel)]="realmId" name="realm"
-                     placeholder="32"
-                     class="custom-input" />
-            </div>
-            <span class="field-hint">Default: 32 — platformengineeringallteam</span>
-          </div>
+          <!-- Load Realms button -->
+          <button class="load-realms-btn"
+                  [class.ready]="canLoadRealms"
+                  [disabled]="!canLoadRealms"
+                  (click)="loadRealms()">
+            @if (loadingRealms()) {
+              <mat-spinner diameter="16" class="btn-spinner" />
+              <span>Loading your realms…</span>
+            } @else {
+              <mat-icon>domain</mat-icon>
+              <span>Load My Realms</span>
+            }
+          </button>
 
+          <!-- Step 2: Realm Selector — shown after fetch -->
+          @if (realmsFetched()) {
+            <div class="field-group realm-field-group">
+              <label class="field-label">
+                <span class="step-num">2</span>
+                Select Your Realm
+              </label>
+
+              <div class="realm-selector">
+                @for (r of realms(); track r.id) {
+                  <button type="button"
+                          class="realm-option"
+                          [class.selected]="selectedRealm === r.id"
+                          (click)="selectedRealm = r.id">
+                    <div class="realm-option-left">
+                      <mat-icon class="realm-icon">meeting_room</mat-icon>
+                      <span class="realm-name">{{ r.name }}</span>
+                    </div>
+                    <span class="realm-id-tag">ID {{ r.id }}</span>
+                    @if (selectedRealm === r.id) {
+                      <mat-icon class="realm-check">check_circle</mat-icon>
+                    }
+                  </button>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- Error -->
           @if (error()) {
             <div class="error-banner">
               <mat-icon>error_outline</mat-icon>
@@ -108,12 +139,14 @@
             </div>
           }
 
-          <button type="submit" class="connect-btn"
+          <!-- Step 3: Launch -->
+          <button class="connect-btn"
                   [class.loading]="loading()"
-                  [disabled]="!token || loading()">
+                  [disabled]="!canConnect"
+                  (click)="connect()">
             @if (loading()) {
               <mat-spinner diameter="20" class="btn-spinner" />
-              <span>Authenticating...</span>
+              <span>Authenticating…</span>
             } @else {
               <mat-icon>electric_bolt</mat-icon>
               <span>Launch Studio</span>
@@ -121,11 +154,11 @@
             }
           </button>
 
-        </form>
+        </div>
 
         <div class="form-footer">
           <mat-icon>lock_outline</mat-icon>
-          Token stored in session only · Never transmitted outside AAVA
+          Token stored locally · Never transmitted outside AAVA
         </div>
 
       </div>
