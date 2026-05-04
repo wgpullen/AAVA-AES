@@ -30,12 +30,12 @@ $aes-theme: mat.define-dark-theme((
 @include mat.all-component-themes($aes-theme);
 
 :root {
-  --aes-bg-root:      #07101f;
-  --aes-bg-sidebar:   #0a1628;
-  --aes-bg-header:    #0a1628;
-  --aes-bg-main:      #0d1b2e;
-  --aes-bg-card:      #0f2237;
-  --aes-bg-elevated:  #162a45;
+  --aes-bg-root:      #05080f;
+  --aes-bg-sidebar:   #080d1a;
+  --aes-bg-header:    #080d1a;
+  --aes-bg-main:      #0a1220;
+  --aes-bg-card:      #0d1828;
+  --aes-bg-elevated:  #111f33;
   --aes-bg-hover:     rgba(79,195,247,0.06);
   --aes-bg-active:    rgba(79,195,247,0.12);
   --aes-text-primary:   #e2e8f0;
@@ -64,7 +64,9 @@ $aes-theme: mat.define-dark-theme((
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden;background:var(--aes-bg-root);
   font-family:'Inter','Segoe UI',Roboto,sans-serif;color:var(--aes-text-primary);
-  font-size:14px;-webkit-font-smoothing:antialiased}
+  font-size:14px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+/* Allow auth page to scroll if viewport is short */
+app-root{display:block;height:100%}
 ::-webkit-scrollbar{width:6px;height:6px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:rgba(79,195,247,0.2);border-radius:3px}
@@ -109,6 +111,11 @@ html,body{height:100%;overflow:hidden;background:var(--aes-bg-root);
 @keyframes fade-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes glow-pulse{0%,100%{box-shadow:0 0 0 1px rgba(79,195,247,.3)}
   50%{box-shadow:0 0 0 1px rgba(79,195,247,.3),0 0 20px rgba(79,195,247,.2)}}
+
+.aes-snack-success .mdc-snackbar__surface{background:var(--aes-success-bg)!important;border:1px solid rgba(76,175,80,.35)!important}
+.aes-snack-error   .mdc-snackbar__surface{background:var(--aes-error-bg)!important;  border:1px solid rgba(244,67,54,.35)!important}
+.aes-snack-info    .mdc-snackbar__surface{background:var(--aes-info-bg)!important;    border:1px solid rgba(41,182,246,.35)!important}
+.aes-snack-warn    .mdc-snackbar__surface{background:var(--aes-warning-bg)!important; border:1px solid rgba(255,152,0,.35)!important}
 
 .aes-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;
   padding:60px 20px;color:var(--aes-text-muted);gap:12px}

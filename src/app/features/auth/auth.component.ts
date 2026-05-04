@@ -14,73 +14,28 @@ import { NotificationService } from '../../core/services/notification.service';
   selector: 'app-auth',
   standalone: true,
   imports: [FormsModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
-  template: `
-    <div class="auth-page">
-      <div class="auth-card aes-fade-in">
-        <div class="auth-logo">
-          <div class="logo-glow">⚡</div>
-          <h1>Autonomous Engineering Studio</h1>
-          <p>Connect your AAVA Personal Access Token to continue</p>
-        </div>
-
-        <form class="auth-form" (ngSubmit)="connect()">
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>AAVA Personal Access Token</mat-label>
-            <mat-icon matPrefix>key</mat-icon>
-            <input matInput [(ngModel)]="token" name="token"
-                   [type]="showToken ? 'text' : 'password'"
-                   placeholder="eyJ..." required autocomplete="off" />
-            <button mat-icon-button matSuffix type="button" (click)="showToken = !showToken">
-              <mat-icon>{{ showToken ? 'visibility_off' : 'visibility' }}</mat-icon>
-            </button>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Realm ID</mat-label>
-            <mat-icon matPrefix>domain</mat-icon>
-            <input matInput [(ngModel)]="realmId" name="realm" placeholder="32" />
-            <mat-hint>Default realm is 32 (platformengineeringallteam)</mat-hint>
-          </mat-form-field>
-
-          @if (error()) {
-            <div class="auth-error">
-              <mat-icon>error_outline</mat-icon>
-              {{ error() }}
-            </div>
-          }
-
-          <button mat-flat-button color="primary" type="submit" class="connect-btn"
-                  [disabled]="!token || loading()">
-            @if (loading()) {
-              <mat-spinner diameter="18" />
-              Connecting...
-            } @else {
-              <mat-icon>electric_bolt</mat-icon>
-              Connect to AAVA
-            }
-          </button>
-        </form>
-
-        <div class="auth-hint">
-          <mat-icon>info_outline</mat-icon>
-          Your token is stored only in this browser session and never sent anywhere except AAVA.
-        </div>
-      </div>
-    </div>
-  `,
+  templateUrl: './auth.component.html',
   styleUrl: './auth.component.scss',
 })
 export class AuthComponent {
-  token   = '';
-  realmId = '32';
-  showToken = false;
-  loading = signal(false);
-  error   = signal('');
+  token     = '';
+  realmId   = '32';
 
-  private auth    = inject(AuthService);
-  private api     = inject(AavaApiService);
-  private router  = inject(Router);
-  private notify  = inject(NotificationService);
+  features = [
+    { label: 'Real-time SSE execution dashboard with per-agent progress' },
+    { label: 'AI Pipeline Builder — problem statement to live workflow' },
+    { label: 'Advanced artifact search across all 5 resource types' },
+    { label: 'Projects & Use Cases for team-level organization' },
+    { label: 'In-studio AI assistant powered by AAVA Revelio' },
+  ];
+  showToken = false;
+  loading   = signal(false);
+  error     = signal('');
+
+  private auth   = inject(AuthService);
+  private api    = inject(AavaApiService);
+  private router = inject(Router);
+  private notify = inject(NotificationService);
 
   connect(): void {
     if (!this.token) return;
@@ -98,7 +53,7 @@ export class AuthComponent {
           role: user.role as any,
           realmId: this.realmId || '32',
         });
-        this.notify.success(`Welcome, ${user.name}!`);
+        this.notify.success(`Welcome back, ${user.name}!`);
         this.router.navigate(['/studio/search']);
       },
       error: () => {

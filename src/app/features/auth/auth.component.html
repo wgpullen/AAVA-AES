@@ -1,0 +1,135 @@
+<div class="auth-root">
+
+  <!-- Animated background grid -->
+  <div class="bg-grid"></div>
+
+  <!-- Floating glow orbs -->
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <div class="auth-layout">
+
+    <!-- Left panel: Branding -->
+    <div class="brand-panel">
+      <div class="brand-content">
+        <div class="brand-badge">
+          <span class="badge-dot"></span>
+          AAVA Platform · Enterprise Studio
+        </div>
+
+        <h1 class="brand-headline">
+          Autonomous<br>
+          <span class="headline-accent">Engineering</span><br>
+          Studio
+        </h1>
+
+        <p class="brand-sub">
+          Design, build, and execute AI pipelines at enterprise scale.
+          Full visibility. Zero friction.
+        </p>
+
+        <div class="brand-stats">
+          <div class="stat">
+            <span class="stat-num">388+</span>
+            <span class="stat-label">API Endpoints</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <span class="stat-num">7</span>
+            <span class="stat-label">Studio Modules</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <span class="stat-num">∞</span>
+            <span class="stat-label">Scale</span>
+          </div>
+        </div>
+
+        <div class="feature-list">
+          @for (f of features; track f.label) {
+            <div class="feature-item">
+              <div class="feature-dot"></div>
+              <span>{{ f.label }}</span>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- Right panel: Login form -->
+    <div class="form-panel">
+      <div class="form-card">
+
+        <div class="form-header">
+          <div class="logo-mark">
+            <span class="logo-bolt">⚡</span>
+          </div>
+          <div class="form-title-block">
+            <h2 class="form-title">Connect to AAVA</h2>
+            <p class="form-subtitle">Enter your Personal Access Token to launch the studio</p>
+          </div>
+        </div>
+
+        <form (ngSubmit)="connect()" class="form-body">
+
+          <div class="field-group">
+            <label class="field-label">Personal Access Token</label>
+            <div class="input-wrapper" [class.has-value]="token">
+              <mat-icon class="input-icon">key</mat-icon>
+              <input [(ngModel)]="token" name="token"
+                     [type]="showToken ? 'text' : 'password'"
+                     placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6Ikp..."
+                     class="custom-input"
+                     autocomplete="off"
+                     required />
+              <button type="button" class="toggle-vis" (click)="showToken = !showToken"
+                      [title]="showToken ? 'Hide token' : 'Show token'">
+                <mat-icon>{{ showToken ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Realm ID</label>
+            <div class="input-wrapper" [class.has-value]="realmId">
+              <mat-icon class="input-icon">domain</mat-icon>
+              <input [(ngModel)]="realmId" name="realm"
+                     placeholder="32"
+                     class="custom-input" />
+            </div>
+            <span class="field-hint">Default: 32 — platformengineeringallteam</span>
+          </div>
+
+          @if (error()) {
+            <div class="error-banner">
+              <mat-icon>error_outline</mat-icon>
+              <span>{{ error() }}</span>
+            </div>
+          }
+
+          <button type="submit" class="connect-btn"
+                  [class.loading]="loading()"
+                  [disabled]="!token || loading()">
+            @if (loading()) {
+              <mat-spinner diameter="20" class="btn-spinner" />
+              <span>Authenticating...</span>
+            } @else {
+              <mat-icon>electric_bolt</mat-icon>
+              <span>Launch Studio</span>
+              <div class="btn-glow"></div>
+            }
+          </button>
+
+        </form>
+
+        <div class="form-footer">
+          <mat-icon>lock_outline</mat-icon>
+          Token stored in session only · Never transmitted outside AAVA
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
