@@ -80,6 +80,7 @@ export class BuilderComponent {
   autoApprove = true;
 
   agentStatuses = signal<BuilderAgent['status'][]>([]);
+  workflowBuildStatus = signal<'pending' | 'assembling' | 'done' | 'error'>('pending');
 
   generatePlan(): void {
     if (!this.problem()) return;
@@ -290,13 +291,21 @@ export class BuilderComponent {
       })
     ).subscribe(res => {
       const agentId = res.id;
+
+      if (!agentId || agentId <= 0) {
+        // creation failed — status already set to 'error' by catchError; just advance
+        this.buildProgress.set(Math.round(((idx + 1) / (agents.length + 1)) * 100));
+        this.createAgentsSequentially(agents, idx + 1);
+        return;
+      }
+
       this.plan.update(p => {
         if (!p) return p;
         const a = [...p.agents]; a[idx] = { ...a[idx], id: agentId };
         return { ...p, agents: a };
       });
 
-      if (agentId > 0 && this.autoApprove) {
+      if (this.autoApprove) {
         forkJoin([
           this.api.submitAgentForReview(agentId).pipe(catchError(() => of(null))),
         ]).subscribe(() => {
@@ -318,11 +327,13 @@ export class BuilderComponent {
     const p = this.plan();
     if (!p) return;
 
+    this.workflowBuildStatus.set('assembling');
+
     const validAgents = agents.filter(a => a.id && a.id > 0);
     const payload = {
       name: p.workflowName,
       description: `Auto-built pipeline for: ${p.problem}`,
-      status: 'DRAFTED',
+      status: 'CREATED',
       teamId: 229,
       workflowConfig: {},
       workflowAgents: validAgents.map((a, i) => ({ serial: i + 1, agentId: a.id! })),
@@ -331,16 +342,30 @@ export class BuilderComponent {
     this.api.createWorkflow(payload as any).pipe(
       catchError(err => {
         this.notify.error(`Workflow creation failed: ${err.message}`);
+        this.workflowBuildStatus.set('error');
         this.building.set(false);
         return of(null);
       })
     ).subscribe(res => {
       if (!res) return;
-      this.builtWorkflowId.set(res.id);
-      this.buildProgress.set(100);
-      this.building.set(false);
-      this.step.set('done');
-      this.notify.success(`Pipeline "${p.workflowName}" created successfully!`);
+      const workflowId = res.id;
+      this.builtWorkflowId.set(workflowId);
+
+      const finish = () => {
+        this.workflowBuildStatus.set('done');
+        this.buildProgress.set(100);
+        this.building.set(false);
+        this.step.set('done');
+        this.notify.success(`Pipeline "${p.workflowName}" built successfully!`);
+      };
+
+      if (this.autoApprove && workflowId) {
+        this.api.submitWorkflowForReview(workflowId).pipe(catchError(() => of(null))).subscribe(() => {
+          this.api.approveWorkflow(workflowId).pipe(catchError(() => of(null))).subscribe(() => finish());
+        });
+      } else {
+        finish();
+      }
     });
   }
 
@@ -351,5 +376,6 @@ export class BuilderComponent {
     this.industry.set('');
     this.builtWorkflowId.set(null);
     this.buildProgress.set(0);
+    this.workflowBuildStatus.set('pending');
   }
 }

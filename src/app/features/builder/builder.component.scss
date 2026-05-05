@@ -215,9 +215,12 @@
 
   mat-icon { font-size: 18px; width: 18px; height: 18px; flex-shrink: 0; }
 
-  &--approved { color: var(--aes-success); mat-icon { color: var(--aes-success); } }
-  &--creating  { color: var(--aes-accent); mat-icon { color: var(--aes-accent); animation: spin 1s linear infinite; } }
-  &--error     { color: var(--aes-error); mat-icon { color: var(--aes-error); } }
+  &--approved   { color: var(--aes-success); mat-icon { color: var(--aes-success); } }
+  &--created    { color: var(--aes-success); mat-icon { color: var(--aes-success); } }
+  &--done       { color: var(--aes-success); mat-icon { color: var(--aes-success); } }
+  &--creating   { color: var(--aes-accent); mat-icon { color: var(--aes-accent); animation: spin 1s linear infinite; } }
+  &--assembling { color: var(--aes-accent); mat-icon { color: var(--aes-accent); animation: spin 1s linear infinite; } }
+  &--error      { color: var(--aes-error); mat-icon { color: var(--aes-error); } }
 }
 
 .build-step-status {

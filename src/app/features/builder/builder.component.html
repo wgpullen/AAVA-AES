@@ -164,7 +164,7 @@ e.g. Build a compliance review pipeline for insurance policy documents"></textar
         @for (agent of plan()!.agents; track agent; let i = $index) {
           <div class="build-step" [class]="'build-step--' + (agentStatuses()[i] ?? 'pending')">
             <mat-icon>
-              {{ agentStatuses()[i] === 'approved' ? 'check_circle' :
+              {{ agentStatuses()[i] === 'approved' || agentStatuses()[i] === 'created' ? 'check_circle' :
                  agentStatuses()[i] === 'creating' ? 'pending' :
                  agentStatuses()[i] === 'error'    ? 'error' : 'radio_button_unchecked' }}
             </mat-icon>
@@ -172,9 +172,14 @@ e.g. Build a compliance review pipeline for insurance policy documents"></textar
             <span class="build-step-status">{{ agentStatuses()[i] ?? 'pending' }}</span>
           </div>
         }
-        <div class="build-step" [class]="buildProgress() === 100 ? 'build-step--approved' : 'build-step--pending'">
-          <mat-icon>{{ buildProgress() === 100 ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+        <div class="build-step" [class]="'build-step--' + workflowBuildStatus()">
+          <mat-icon>
+            {{ workflowBuildStatus() === 'done'       ? 'check_circle' :
+               workflowBuildStatus() === 'assembling' ? 'pending' :
+               workflowBuildStatus() === 'error'      ? 'error' : 'radio_button_unchecked' }}
+          </mat-icon>
           <span>Workflow Assembly</span>
+          <span class="build-step-status">{{ workflowBuildStatus() }}</span>
         </div>
       </div>
     </div>
