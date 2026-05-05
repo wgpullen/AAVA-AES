@@ -323,13 +323,15 @@ export class BuilderComponent {
     });
   }
 
-  private createWorkflow(agents: BuilderAgent[]): void {
+  private createWorkflow(_agents: BuilderAgent[]): void {
     const p = this.plan();
     if (!p) return;
 
     this.workflowBuildStatus.set('assembling');
 
-    const validAgents = agents.filter(a => a.id && a.id > 0);
+    // Use the signal (p.agents) — the _agents parameter is the original stale array
+    // from buildPipeline() whose objects never receive the id values set via plan.update()
+    const validAgents = p.agents.filter(a => a.id && a.id > 0);
     const payload = {
       name: p.workflowName,
       description: `Auto-built pipeline for: ${p.problem}`,
