@@ -277,3 +277,30 @@ p { font-size: 14px; color: var(--aes-text-secondary); }
   gap: 12px;
   margin-top: 8px;
 }
+
+// ── Build status icon (shown after build completes) ───────
+.build-status-icon--done  { font-size: 32px; width: 32px; height: 32px; color: var(--aes-success); }
+.build-status-icon--error { font-size: 32px; width: 32px; height: 32px; color: var(--aes-error);   }
+
+// ── Error recovery block ───────────────────────────────────
+.build-error-recovery {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 400px;
+  padding: 16px 20px;
+  background: color-mix(in srgb, var(--aes-error) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aes-error) 30%, transparent);
+  border-radius: var(--aes-radius-md);
+  text-align: center;
+  font-size: 13px;
+  color: var(--aes-text-secondary);
+
+  mat-icon { color: var(--aes-error); font-size: 22px; width: 22px; height: 22px; }
+}
+
+.recovery-actions {
+  display: flex;
+  gap: 10px;
+}
