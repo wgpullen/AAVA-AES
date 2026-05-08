@@ -337,6 +337,25 @@
   }
 }
 
+// ── Realm loading indicator (Bug #2 fix) ─────────────
+.realm-loading-indicator {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.realm-loading-bar {
+  border-radius: 2px;
+  --mdc-linear-progress-active-indicator-color: #a78bfa;
+  --mdc-linear-progress-track-color: rgba(167, 139, 250, 0.15);
+}
+
+.realm-loading-hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  text-align: center;
+}
+
 // ── Realm selector ────────────────────────────────────
 .realm-field-group {
   animation: fade-in 0.25s ease forwards;

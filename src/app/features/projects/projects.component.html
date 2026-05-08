@@ -126,8 +126,17 @@
 
                         @if (!cache.isLoaded()) {
                           <div class="picker-empty">
-                            <mat-icon>cloud_download</mat-icon>
-                            <span>Artifacts loading — visit Artifact Search first to cache them.</span>
+                            @if (cache.loading()) {
+                              <mat-spinner diameter="28" />
+                              <span>Loading artifacts from AAVA…</span>
+                            } @else {
+                              <mat-icon>cloud_download</mat-icon>
+                              <span>Artifacts not yet loaded.</span>
+                              <button mat-stroked-button class="picker-load-btn"
+                                      (click)="loadArtifacts()">
+                                <mat-icon>refresh</mat-icon> Load Now
+                              </button>
+                            }
                           </div>
                         } @else if (pickerResults().length === 0) {
                           <div class="picker-empty">

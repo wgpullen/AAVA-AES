@@ -49,7 +49,9 @@
         <mat-spinner diameter="14" class="inline-spinner" />
         Loading artifacts from AAVA…
       } @else if (!cache.isLoaded()) {
-        Not loaded yet
+        <mat-icon class="status-warn-icon">warning</mat-icon>
+        Load failed ·
+        <button class="retry-link" (click)="reload()">Retry</button>
       } @else {
         {{ filtered.length }} artifacts
         @if (query) { matching "{{ query }}" }
@@ -77,8 +79,12 @@
     @if (!cache.loading() && filtered.length === 0) {
       <div class="aes-empty">
         @if (!cache.isLoaded()) {
-          <mat-icon>cloud_download</mat-icon>
-          <p>Artifacts are loading in the background. They'll appear here automatically.</p>
+          <!-- Cache finished loading but produced no data — fetch failed or timed out -->
+          <mat-icon>error_outline</mat-icon>
+          <p>Artifacts failed to load. This can happen on first load or after a network timeout.</p>
+          <button mat-stroked-button class="retry-btn" (click)="reload()">
+            <mat-icon>refresh</mat-icon> Retry
+          </button>
         } @else {
           <mat-icon>search_off</mat-icon>
           <p>No artifacts found. Try adjusting your search or filters.</p>

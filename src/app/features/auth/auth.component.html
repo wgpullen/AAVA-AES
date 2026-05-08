@@ -103,6 +103,14 @@
             }
           </button>
 
+          <!-- Visible loading indicator while realm fetch is in progress (Bug #2) -->
+          @if (loadingRealms()) {
+            <div class="realm-loading-indicator">
+              <mat-progress-bar mode="indeterminate" class="realm-loading-bar" />
+              <span class="realm-loading-hint">Connecting to AAVA — typically 8–12 seconds…</span>
+            </div>
+          }
+
           <!-- Step 2: Realm Selector — shown after fetch -->
           @if (realmsFetched()) {
             <div class="field-group realm-field-group">

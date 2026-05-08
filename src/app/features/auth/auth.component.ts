@@ -4,6 +4,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { CommonModule } from '@angular/common';
 import { catchError, of } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
@@ -28,7 +29,7 @@ const KNOWN_REALMS: RealmOption[] = [
 @Component({
   selector: 'app-auth',
   standalone: true,
-  imports: [FormsModule, CommonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [FormsModule, CommonModule, MatIconModule, MatProgressSpinnerModule, MatProgressBarModule],
   templateUrl: './auth.component.html',
   styleUrl: './auth.component.scss',
 })

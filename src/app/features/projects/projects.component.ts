@@ -9,6 +9,7 @@ import { MatDialogModule } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatExpansionModule } from '@angular/material/expansion';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { CommonModule } from '@angular/common';
 import { ProjectsService } from '../../core/services/projects.service';
 import { NotificationService } from '../../core/services/notification.service';
@@ -23,7 +24,7 @@ import { Project, UseCase } from '../../core/models/project.models';
     FormsModule, CommonModule,
     MatFormFieldModule, MatInputModule, MatSelectModule,
     MatButtonModule, MatIconModule, MatDialogModule,
-    MatTooltipModule, MatChipsModule, MatExpansionModule,
+    MatTooltipModule, MatChipsModule, MatExpansionModule, MatProgressSpinnerModule,
   ],
   templateUrl: './projects.component.html',
   styleUrl: './projects.component.scss',
@@ -136,6 +137,10 @@ export class ProjectsComponent {
     const project = this.projects().find(p => p.id === projectId);
     const uc = project?.useCases.find(u => u.id === ucId);
     return uc?.artifacts.some(a => a.id === artifact.id && a.type === artifact.type) ?? false;
+  }
+
+  loadArtifacts(): void {
+    this.cache.preload();
   }
 
   removeFavorite(artifactId: number, type: string, name: string): void {
