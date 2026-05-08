@@ -384,32 +384,47 @@ export class ExecuteComponent implements OnInit, OnDestroy {
 
       const tasks     = parsed?.tasksOutputs ?? [];
       const agentList = parsed?.pipeLineAgents ?? [];
-      const progress  = this.agents();
+      const current   = this.agents();
 
-      // Expand agent array if result has more agents than expected (common when count was unknown)
-      if (tasks.length > progress.length) {
-        const extra = tasks.length - progress.length;
-        for (let i = 0; i < extra; i++) {
-          this.execSvc.updateAgentProgress(progress.length + i, {
-            index: progress.length + i,
-            name: agentList[progress.length + i]?.agent?.name ?? `Agent ${progress.length + i + 1}`,
-            status: 'pending',
-          } as any);
-        }
+      // Determine true agent count from result data — list endpoint never returns workflowAgents
+      const totalCount = Math.max(tasks.length, agentList.length, current.length, 1);
+
+      // updateAgentProgress() skips non-existent slots (if-guard) and cannot grow the array.
+      // Use agentProgress.set() to build the properly-sized array before patching individual slots.
+      if (totalCount > current.length) {
+        const expanded: AgentProgress[] = Array.from({ length: totalCount }, (_, i) => {
+          if (i < current.length) return current[i];
+          return {
+            index:     i,
+            name:      agentList[i]?.agent?.name ?? `Agent ${i + 1}`,
+            status:    'pending' as const,
+            startedAt: undefined,
+          };
+        });
+        this.execSvc.agentProgress.set(expanded);
       }
 
+      // Map task[i] → agent slot i directly — no Math.min clamp
       tasks.forEach((task: any, i: number) => {
-        const idx = Math.min(i, this.agents().length - 1);
-        this.execSvc.updateAgentProgress(idx, {
+        this.execSvc.updateAgentProgress(i, {
           status:      'done',
           output:      task?.raw ?? task?.output ?? '',
-          name:        agentList[i]?.agent?.name ?? this.agents()[idx]?.name,
-          completedAt: this.agents()[idx]?.completedAt ?? new Date(),
-          startedAt:   this.agents()[idx]?.startedAt   ?? new Date(),
+          name:        agentList[i]?.agent?.name ?? this.agents()[i]?.name,
+          completedAt: this.agents()[i]?.completedAt ?? new Date(),
+          startedAt:   this.agents()[i]?.startedAt   ?? new Date(),
         });
       });
 
-      // Flush any agents that didn't receive a terminal event
+      // Mark remaining slots (agentList entries without a task output) as done
+      for (let i = tasks.length; i < agentList.length; i++) {
+        this.execSvc.updateAgentProgress(i, {
+          name:        agentList[i]?.agent?.name ?? this.agents()[i]?.name,
+          status:      'done',
+          completedAt: new Date(),
+        });
+      }
+
+      // Flush any slots still pending/running after the result arrives
       this.agents().forEach((a, i) => {
         if (a.status !== 'done' && a.status !== 'error') {
           this.execSvc.updateAgentProgress(i, { status: 'done', completedAt: new Date() });
