@@ -257,10 +257,13 @@
                 }
 
                 @if (agent.output && agent.status === 'done') {
-                  <details class="agent-output-details">
-                    <summary>View output ({{ agent.output.length }} chars)</summary>
-                    <div class="agent-output">{{ agent.output | slice:0:800 }}{{ agent.output.length > 800 ? '…' : '' }}</div>
+                  <details class="agent-output-details" open>
+                    <summary>Output ({{ agent.output.length }} chars)</summary>
+                    <div class="agent-output">{{ agent.output | slice:0:1200 }}{{ agent.output.length > 1200 ? '…' : '' }}</div>
                   </details>
+                }
+                @if (!agent.output && agent.status === 'done') {
+                  <div class="agent-no-output">No text output captured — result may be in Azure Blob Storage</div>
                 }
               </div>
             </div>

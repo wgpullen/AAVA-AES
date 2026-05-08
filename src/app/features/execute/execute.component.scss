@@ -585,6 +585,13 @@
   mat-icon { font-size: 14px; width: 14px; height: 14px; }
 }
 
+.agent-no-output {
+  font-size: 11px;
+  color: var(--aes-text-muted);
+  margin-top: 6px;
+  font-style: italic;
+}
+
 .agent-output-details {
   margin-top: 8px;
 

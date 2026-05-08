@@ -381,67 +381,92 @@ export class ExecuteComponent implements OnInit, OnDestroy {
   }
 
   private parseAndCompleteRun(res: any): void {
+    // Log the full result so we can see AAVA's exact shape in DevTools
+    console.log('[AES parseAndComplete] raw res keys:', res ? Object.keys(res) : null);
+    console.log('[AES parseAndComplete] res.tasksOutputs:', res?.tasksOutputs?.length, res?.tasksOutputs?.[0]);
+    console.log('[AES parseAndComplete] res.pipeLineAgents:', res?.pipeLineAgents?.length, res?.pipeLineAgents?.[0]);
+    console.log('[AES parseAndComplete] res.output:', res?.output);
+    console.log('[AES parseAndComplete] res.result:', res?.result);
+
     try {
-      const data = res?.data ?? res;
-      let parsed: any = data;
-      if (typeof data?.result?.response === 'string') {
-        parsed = JSON.parse(data.result.response);
+      // aavaApiService.unwrap() already strips data:{} — so res IS the payload.
+      // Secondary unwrap: some endpoints nest under result.response (JSON string).
+      let parsed: any = res;
+      if (typeof res?.result?.response === 'string') {
+        try { parsed = JSON.parse(res.result.response); } catch {}
       }
 
-      const tasks     = parsed?.tasksOutputs ?? [];
-      const agentList = parsed?.pipeLineAgents ?? [];
-      const current   = this.agents();
+      // Probe all known AAVA result paths for task outputs and agent list
+      const tasks: any[]     = parsed?.tasksOutputs ?? parsed?.taskOutputs ?? parsed?.tasks ?? [];
+      const agentList: any[] = (parsed?.pipeLineAgents ?? parsed?.pipelineAgents ?? parsed?.agents ?? [])
+        .sort((a: any, b: any) => (a.serial ?? a.serialNo ?? 0) - (b.serial ?? b.serialNo ?? 0));
 
-      // Determine true agent count from result data — list endpoint never returns workflowAgents
+      console.log('[AES parseAndComplete] tasks found:', tasks.length, '| agentList found:', agentList.length);
+      if (tasks.length > 0) console.log('[AES parseAndComplete] task[0] keys:', Object.keys(tasks[0]));
+      if (agentList.length > 0) console.log('[AES parseAndComplete] agent[0] keys:', Object.keys(agentList[0]));
+
+      const current    = this.agents();
       const totalCount = Math.max(tasks.length, agentList.length, current.length, 1);
 
-      // updateAgentProgress() skips non-existent slots (if-guard) and cannot grow the array.
-      // Use agentProgress.set() to build the properly-sized array before patching individual slots.
+      // updateAgentProgress() skips non-existent slots — use agentProgress.set() to grow the array first.
       if (totalCount > current.length) {
         const expanded: AgentProgress[] = Array.from({ length: totalCount }, (_, i) => {
           if (i < current.length) return current[i];
-          return {
-            index:     i,
-            name:      agentList[i]?.agent?.name ?? `Agent ${i + 1}`,
-            status:    'pending' as const,
-            startedAt: undefined,
-          };
+          const agentName = agentList[i]?.agent?.name ?? agentList[i]?.agentName ?? `Agent ${i + 1}`;
+          return { index: i, name: agentName, status: 'pending' as const, startedAt: undefined };
         });
         this.execSvc.agentProgress.set(expanded);
       }
 
-      // Map task[i] → agent slot i directly — no Math.min clamp
+      // Extract output from task — AAVA uses various field names across versions
+      const extractOutput = (task: any): string => {
+        if (!task) return '';
+        return task.raw ?? task.output ?? task.summary ?? task.result ?? task.agentOutput
+          ?? task.response ?? task.content ?? '';
+      };
+
+      // Map task[i] → agent slot i (no Math.min clamp)
       tasks.forEach((task: any, i: number) => {
+        const agentName = agentList[i]?.agent?.name ?? agentList[i]?.agentName
+          ?? this.agents()[i]?.name ?? `Agent ${i + 1}`;
         this.execSvc.updateAgentProgress(i, {
           status:      'done',
-          output:      task?.raw ?? task?.output ?? '',
-          name:        agentList[i]?.agent?.name ?? this.agents()[i]?.name,
+          output:      extractOutput(task),
+          name:        agentName,
           completedAt: this.agents()[i]?.completedAt ?? new Date(),
           startedAt:   this.agents()[i]?.startedAt   ?? new Date(),
         });
       });
 
-      // Mark remaining slots (agentList entries without a task output) as done
+      // Agents in pipeLineAgents but without a matching tasksOutputs entry
       for (let i = tasks.length; i < agentList.length; i++) {
+        const entry     = agentList[i];
+        const agentName = entry?.agent?.name ?? entry?.agentName ?? this.agents()[i]?.name ?? `Agent ${i + 1}`;
+        // pipeLineAgents itself sometimes carries the per-agent output
+        const agentOut  = extractOutput(entry) || extractOutput(entry?.agent);
         this.execSvc.updateAgentProgress(i, {
-          name:        agentList[i]?.agent?.name ?? this.agents()[i]?.name,
+          name:        agentName,
           status:      'done',
+          output:      agentOut,
           completedAt: new Date(),
         });
       }
 
-      // Flush any slots still pending/running after the result arrives
+      // Flush any slots still pending/running
       this.agents().forEach((a, i) => {
         if (a.status !== 'done' && a.status !== 'error') {
           this.execSvc.updateAgentProgress(i, { status: 'done', completedAt: new Date() });
         }
       });
 
+      console.log('[AES parseAndComplete] final agents:', this.agents().map(a => ({ name: a.name, status: a.status, outputLen: a.output?.length ?? 0 })));
+
       this.executionResult.set(parsed);
       this.execSvc.completeRun(parsed);
       this.showResults.set(true);
       this.notify.success('Workflow execution completed!');
-    } catch {
+    } catch (err) {
+      console.error('[AES parseAndComplete] error:', err);
       this.execSvc.completeRun(res);
       this.showResults.set(true);
     }
@@ -512,6 +537,28 @@ export class ExecuteComponent implements OnInit, OnDestroy {
   finalOutput = computed(() => {
     const res = this.executionResult();
     if (!res) return '';
-    return res?.output ?? res?.tasksOutputs?.[res.tasksOutputs.length - 1]?.raw ?? '';
+
+    // Prefer a per-task output over the generic workflow-level output string
+    const tasks: any[] = res?.tasksOutputs ?? res?.taskOutputs ?? res?.tasks ?? [];
+    if (tasks.length > 0) {
+      const last = tasks[tasks.length - 1];
+      const content = last?.raw ?? last?.output ?? last?.summary ?? last?.result ?? '';
+      if (content) return content;
+    }
+
+    // pipeLineAgents sometimes carries agent-level output
+    const agents: any[] = res?.pipeLineAgents ?? res?.pipelineAgents ?? res?.agents ?? [];
+    if (agents.length > 0) {
+      const last = agents[agents.length - 1];
+      const content = last?.raw ?? last?.output ?? last?.summary ?? last?.agent?.output ?? '';
+      if (content) return content;
+    }
+
+    // Fall back to workflow-level output, but suppress generic success messages
+    const wfOutput: string = res?.output ?? '';
+    const GENERIC = ['workflow execution completed', 'success', 'completed', 'done'];
+    if (wfOutput && !GENERIC.some(g => wfOutput.trim().toLowerCase() === g)) return wfOutput;
+
+    return '';
   });
 }
