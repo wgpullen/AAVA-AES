@@ -146,13 +146,23 @@ e.g. Build a compliance review pipeline for insurance policy documents"></textar
     </div>
   }
 
-  <!-- Step: Build (in progress) -->
+  <!-- Step: Build (in progress / done / error) -->
   @if (step() === 'build') {
     <div class="builder-build-view aes-fade-in">
       <div class="build-header">
-        <mat-spinner diameter="32" />
+        @if (building()) {
+          <mat-spinner diameter="32" />
+        } @else {
+          <mat-icon [class]="workflowBuildStatus() === 'error' ? 'build-status-icon--error' : 'build-status-icon--done'">
+            {{ workflowBuildStatus() === 'error' ? 'error' : 'check_circle' }}
+          </mat-icon>
+        }
         <div>
-          <div class="build-title">Building Pipeline...</div>
+          <div class="build-title">
+            @if (building()) { Building Pipeline... }
+            @else if (workflowBuildStatus() === 'error') { Build Encountered Errors }
+            @else { Build Complete }
+          </div>
           <div class="build-subtitle">Creating agents, approving artifacts, assembling workflow</div>
         </div>
       </div>
@@ -182,6 +192,22 @@ e.g. Build a compliance review pipeline for insurance policy documents"></textar
           <span class="build-step-status">{{ workflowBuildStatus() }}</span>
         </div>
       </div>
+
+      <!-- Error recovery: shown only when build finishes with errors -->
+      @if (!building() && workflowBuildStatus() === 'error') {
+        <div class="build-error-recovery aes-fade-in">
+          <mat-icon>warning</mat-icon>
+          <span>Some steps failed. Review errors above, then go back to adjust your plan or retry.</span>
+          <div class="recovery-actions">
+            <button mat-stroked-button (click)="step.set('plan')">
+              <mat-icon>arrow_back</mat-icon> Back to Plan
+            </button>
+            <button mat-flat-button color="warn" (click)="buildPipeline()">
+              <mat-icon>refresh</mat-icon> Retry Build
+            </button>
+          </div>
+        </div>
+      }
     </div>
   }
 

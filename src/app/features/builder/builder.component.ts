@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -66,27 +66,27 @@ export class BuilderComponent {
   private api    = inject(AavaApiService);
   private notify = inject(NotificationService);
 
-  step = signal<'input' | 'plan' | 'build' | 'done'>('input');
-  problem      = signal('');
-  industry     = signal('');
-  generating   = signal(false);
-  building     = signal(false);
-  buildProgress = signal(0);
+  step            = signal<'input' | 'plan' | 'build' | 'done'>('input');
+  problem         = signal('');
+  industry        = signal('');
+  generating      = signal(false);
+  building        = signal(false);
+  buildProgress   = signal(0);
 
-  plan = signal<BuilderPlan | null>(null);
+  plan            = signal<BuilderPlan | null>(null);
   builtWorkflowId = signal<number | null>(null);
 
-  models = MODELS;
+  models      = MODELS;
   autoApprove = true;
 
-  agentStatuses = signal<BuilderAgent['status'][]>([]);
+  agentStatuses       = signal<BuilderAgent['status'][]>([]);
   workflowBuildStatus = signal<'pending' | 'assembling' | 'done' | 'error'>('pending');
+
+  // ── Plan generation ───────────────────────────────────────────────────────
 
   generatePlan(): void {
     if (!this.problem()) return;
     this.generating.set(true);
-
-    // Generate plan using Claude-style reasoning based on the problem
     setTimeout(() => {
       const agents = this.inferAgents(this.problem(), this.industry());
       this.plan.set({
@@ -103,20 +103,34 @@ export class BuilderComponent {
     }, 1800);
   }
 
+  // Returns a short timestamp suffix like [05-07 14:23:01] to guarantee uniqueness.
+  // AAVA enforces unique agent/workflow names per realm — without this every second run 409s.
+  private uniqueSuffix(): string {
+    const now = new Date();
+    const mo = String(now.getMonth() + 1).padStart(2, '0');
+    const d  = String(now.getDate()).padStart(2, '0');
+    const h  = String(now.getHours()).padStart(2, '0');
+    const mi = String(now.getMinutes()).padStart(2, '0');
+    const s  = String(now.getSeconds()).padStart(2, '0');
+    return `[${mo}-${d} ${h}:${mi}:${s}]`;
+  }
+
   private inferWorkflowName(problem: string): string {
     const words = problem.split(' ').slice(0, 6).join(' ');
-    return `AES - ${words} Pipeline`;
+    return `AES - ${words} Pipeline ${this.uniqueSuffix()}`;
   }
 
   private inferAgents(problem: string, industry: string): BuilderAgent[] {
-    const p = problem.toLowerCase();
-    const isCode = p.includes('code') || p.includes('software') || p.includes('api') || p.includes('build');
+    const p      = problem.toLowerCase();
+    const suffix = this.uniqueSuffix();
+
+    const isCode     = p.includes('code') || p.includes('software') || p.includes('api') || p.includes('build');
     const isAnalysis = p.includes('analyz') || p.includes('data') || p.includes('report');
-    const isContent = p.includes('content') || p.includes('writ') || p.includes('document');
+    const isContent  = p.includes('content') || p.includes('writ') || p.includes('document');
 
     const agents: BuilderAgent[] = [
       {
-        name: 'Requirements Analyst',
+        name: `Requirements Analyst ${suffix}`,
         role: `${industry ? industry + ' ' : ''}Requirements Analyst`,
         goal: `Deeply analyze and document all requirements for: ${problem}`,
         backstory: `Expert analyst who breaks down complex problems into clear, actionable specifications`,
@@ -129,7 +143,7 @@ export class BuilderComponent {
 
     if (isCode) {
       agents.push({
-        name: 'Architecture Designer',
+        name: `Architecture Designer ${suffix}`,
         role: 'Software Architect',
         goal: `Design a robust technical architecture for the requirements`,
         backstory: `Senior software architect with expertise in modern cloud-native and microservices patterns`,
@@ -139,7 +153,7 @@ export class BuilderComponent {
         modelId: 493,
       });
       agents.push({
-        name: 'Code Generator',
+        name: `Code Generator ${suffix}`,
         role: 'Senior Software Engineer',
         goal: `Generate production-quality code based on the architecture`,
         backstory: `Expert software engineer who writes clean, tested, production-ready code`,
@@ -150,7 +164,7 @@ export class BuilderComponent {
       });
     } else if (isAnalysis) {
       agents.push({
-        name: 'Data Analyst',
+        name: `Data Analyst ${suffix}`,
         role: `${industry} Data Analyst`,
         goal: `Perform deep analysis of the data and extract actionable insights`,
         backstory: `Expert data analyst specializing in ${industry || 'enterprise'} domains`,
@@ -161,7 +175,7 @@ export class BuilderComponent {
       });
     } else if (isContent) {
       agents.push({
-        name: 'Content Strategist',
+        name: `Content Strategist ${suffix}`,
         role: 'Content Strategy Expert',
         goal: `Develop compelling, targeted content strategy`,
         backstory: `Expert content strategist with deep knowledge of effective communication`,
@@ -172,8 +186,8 @@ export class BuilderComponent {
       });
     }
 
-    agents.push({
-      name: 'Executive Reporter',
+    const reporter: BuilderAgent = {
+      name: `Executive Reporter ${suffix}`,
       role: 'Executive Communication Specialist',
       goal: `Synthesize all outputs into an executive-ready deliverable`,
       backstory: `Expert at distilling complex technical and analytical work into clear executive summaries`,
@@ -181,7 +195,39 @@ export class BuilderComponent {
       expectedOutput: 'Professional HTML executive report suitable for C-suite presentation',
       aiEngine: 'AzureOpenAI',
       modelId: 53,
-    });
+    };
+    agents.push(reporter);
+
+    // Honor explicit count request in prompt, e.g. "5-agent pipeline" or "build 3 agents"
+    const countMatch   = p.match(/(\d+)[- ]?(?:agent|step)/);
+    const requestedCount = countMatch ? parseInt(countMatch[1], 10) : 0;
+
+    if (requestedCount >= 2 && requestedCount !== agents.length) {
+      if (requestedCount > agents.length) {
+        // Pad with generic specialists before the Executive Reporter
+        const rep = agents.pop()!;
+        while (agents.length < requestedCount - 1) {
+          const n = agents.length + 1;
+          agents.push({
+            name: `Specialist ${n} ${suffix}`,
+            role: `${industry ? industry + ' ' : ''}Specialist`,
+            goal: `Perform specialized analysis and processing for: ${problem}`,
+            backstory: `Domain expert with deep specialization in ${industry || 'the target'} area`,
+            description: `STEP 1: Review prior agent outputs.\nSTEP 2: Apply specialized expertise.\nSTEP 3: Document findings and analysis.\nSTEP 4: Output structured deliverable for next agent.`,
+            expectedOutput: 'Specialized analysis output for pipeline continuation',
+            aiEngine: 'AmazonBedrock',
+            modelId: 493,
+          });
+        }
+        agents.push(rep);
+      } else {
+        // Trim: keep first (requestedCount - 1) domain agents + Executive Reporter
+        const rep     = agents[agents.length - 1];
+        const trimmed = agents.slice(0, Math.max(1, requestedCount - 1));
+        trimmed.push(rep);
+        return trimmed;
+      }
+    }
 
     return agents;
   }
@@ -206,6 +252,8 @@ export class BuilderComponent {
     return guardrails;
   }
 
+  // ── Plan editing ──────────────────────────────────────────────────────────
+
   updateAgent(i: number, field: keyof BuilderAgent, value: any): void {
     this.plan.update(p => {
       if (!p) return p;
@@ -218,15 +266,15 @@ export class BuilderComponent {
   removeAgent(i: number): void {
     this.plan.update(p => {
       if (!p) return p;
-      const agents = p.agents.filter((_, idx) => idx !== i);
-      return { ...p, agents };
+      return { ...p, agents: p.agents.filter((_, idx) => idx !== i) };
     });
     this.agentStatuses.update(s => s.filter((_, idx) => idx !== i));
   }
 
   addAgent(): void {
     const blank: BuilderAgent = {
-      name: 'New Agent', role: 'Specialist', goal: '',
+      name: `New Agent ${this.uniqueSuffix()}`,
+      role: 'Specialist', goal: '',
       backstory: '', description: '', expectedOutput: '',
       aiEngine: 'AmazonBedrock', modelId: 493, status: 'pending',
     };
@@ -234,27 +282,26 @@ export class BuilderComponent {
     this.agentStatuses.update(s => [...s, 'pending']);
   }
 
+  // ── Build pipeline ────────────────────────────────────────────────────────
+
   buildPipeline(): void {
     const p = this.plan();
-    if (!p) return;
+    if (!p || p.agents.length === 0) return;
+
+    // Snapshot agents so mutations during retry don't affect index arithmetic
+    const snapshot = p.agents.map(a => ({ ...a }));
+
     this.building.set(true);
     this.step.set('build');
     this.buildProgress.set(0);
-    this.createAgentsSequentially(p.agents, 0);
+    this.workflowBuildStatus.set('pending');
+    this.agentStatuses.set(snapshot.map(() => 'pending'));
+
+    this.createAgentWithOptionalRetry(0, snapshot, false);
   }
 
-  private createAgentsSequentially(agents: BuilderAgent[], idx: number): void {
-    if (idx >= agents.length) {
-      this.createWorkflow(agents);
-      return;
-    }
-
-    this.agentStatuses.update(s => {
-      const next = [...s]; next[idx] = 'creating'; return next;
-    });
-
-    const agent = agents[idx];
-    const payload = {
+  private buildAgentPayload(agent: BuilderAgent): object {
+    return {
       name: agent.name,
       role: agent.role,
       goal: agent.goal,
@@ -278,47 +325,86 @@ export class BuilderComponent {
         maxExecutionTime: 600,
       },
     };
+  }
 
-    this.api.createAgent(payload as any).pipe(
+  // Recurses through agents one at a time.
+  // On HTTP 409 (duplicate name), immediately retries once with a fresh epoch suffix.
+  private createAgentWithOptionalRetry(idx: number, agents: BuilderAgent[], retried: boolean): void {
+    if (idx >= agents.length) {
+      this.createWorkflow(agents);
+      return;
+    }
+
+    const agent = agents[idx];
+    this.agentStatuses.update(s => { const n = [...s]; n[idx] = 'creating'; return n; });
+
+    this.api.createAgent(this.buildAgentPayload(agent) as any).pipe(
       catchError(err => {
-        this.agentStatuses.update(s => { const n=[...s]; n[idx]='error'; return n; });
+        const msg   = String(err?.error?.message ?? err?.message ?? 'Unknown error');
+        const is409 = err?.status === 409 ||
+                      msg.toLowerCase().includes('duplicate') ||
+                      msg.toLowerCase().includes('already exists');
+
+        if (is409 && !retried) {
+          // Strip any prior suffix and append epoch ms for guaranteed uniqueness
+          const base    = agent.name.replace(/\s*\[[^\]]+\]$/, '').trim();
+          const newName = `${base} [${Date.now()}]`;
+          agents[idx]   = { ...agents[idx], name: newName };
+          // Sync plan signal so UI shows the new name
+          this.plan.update(p => {
+            if (!p) return p;
+            const a = [...p.agents]; a[idx] = { ...a[idx], name: newName };
+            return { ...p, agents: a };
+          });
+          this.createAgentWithOptionalRetry(idx, agents, true);
+          return of({ id: -1, _retrying: true });
+        }
+
+        this.notify.error(`Agent "${agent.name}" failed: ${msg}`);
+        this.agentStatuses.update(s => { const n = [...s]; n[idx] = 'error'; return n; });
         this.plan.update(p => {
           if (!p) return p;
-          const a = [...p.agents]; a[idx] = { ...a[idx], error: err.message };
+          const a = [...p.agents]; a[idx] = { ...a[idx], error: msg };
           return { ...p, agents: a };
         });
         return of({ id: -1 });
       })
-    ).subscribe(res => {
-      const agentId = res.id;
+    ).subscribe((res: any) => {
+      if (res?._retrying) return; // retry dispatched; this subscribe fires after catchError returns
+
+      const agentId = res?.id;
 
       if (!agentId || agentId <= 0) {
-        // creation failed — status already set to 'error' by catchError; just advance
+        // Error already handled; advance past this agent
         this.buildProgress.set(Math.round(((idx + 1) / (agents.length + 1)) * 100));
-        this.createAgentsSequentially(agents, idx + 1);
+        this.createAgentWithOptionalRetry(idx + 1, agents, false);
         return;
       }
 
+      // Persist the new ID into the plan signal — createWorkflow reads from the signal
       this.plan.update(p => {
         if (!p) return p;
         const a = [...p.agents]; a[idx] = { ...a[idx], id: agentId };
         return { ...p, agents: a };
       });
 
+      const advance = () => {
+        this.buildProgress.set(Math.round(((idx + 1) / (agents.length + 1)) * 100));
+        this.createAgentWithOptionalRetry(idx + 1, agents, false);
+      };
+
       if (this.autoApprove) {
         forkJoin([
           this.api.submitAgentForReview(agentId).pipe(catchError(() => of(null))),
         ]).subscribe(() => {
           this.api.approveAgent(agentId).pipe(catchError(() => of(null))).subscribe(() => {
-            this.agentStatuses.update(s => { const n=[...s]; n[idx]='approved'; return n; });
-            this.buildProgress.set(Math.round(((idx + 1) / (agents.length + 1)) * 100));
-            this.createAgentsSequentially(agents, idx + 1);
+            this.agentStatuses.update(s => { const n = [...s]; n[idx] = 'approved'; return n; });
+            advance();
           });
         });
       } else {
-        this.agentStatuses.update(s => { const n=[...s]; n[idx]='created'; return n; });
-        this.buildProgress.set(Math.round(((idx + 1) / (agents.length + 1)) * 100));
-        this.createAgentsSequentially(agents, idx + 1);
+        this.agentStatuses.update(s => { const n = [...s]; n[idx] = 'created'; return n; });
+        advance();
       }
     });
   }
@@ -327,11 +413,17 @@ export class BuilderComponent {
     const p = this.plan();
     if (!p) return;
 
+    // Read IDs from the signal — the _agents parameter is the stale snapshot
+    const validAgents = p.agents.filter(a => a.id && a.id > 0);
+    if (validAgents.length === 0) {
+      this.notify.error('All agents failed to create — cannot assemble workflow. Review errors above.');
+      this.workflowBuildStatus.set('error');
+      this.building.set(false);
+      return;
+    }
+
     this.workflowBuildStatus.set('assembling');
 
-    // Use the signal (p.agents) — the _agents parameter is the original stale array
-    // from buildPipeline() whose objects never receive the id values set via plan.update()
-    const validAgents = p.agents.filter(a => a.id && a.id > 0);
     const payload = {
       name: p.workflowName,
       description: `Auto-built pipeline for: ${p.problem}`,
@@ -343,7 +435,7 @@ export class BuilderComponent {
 
     this.api.createWorkflow(payload as any).pipe(
       catchError(err => {
-        this.notify.error(`Workflow creation failed: ${err.message}`);
+        this.notify.error(`Workflow creation failed: ${err?.error?.message ?? err?.message}`);
         this.workflowBuildStatus.set('error');
         this.building.set(false);
         return of(null);
