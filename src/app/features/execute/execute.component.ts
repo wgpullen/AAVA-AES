@@ -21,6 +21,8 @@ interface WorkflowOption {
   id: number;
   name: string;
   status?: string;
+  description?: string;
+  createdAt?: string;
   agentCount?: number;
   agentNames?: string[];
 }
@@ -124,6 +126,8 @@ export class ExecuteComponent implements OnInit, OnDestroy {
         id: w.id,
         name: w.name,
         status: w.status,
+        description: w.description ?? '',
+        createdAt: w.createdAt ?? '',
         agentCount: w.workflowAgents?.length ?? 0,
         agentNames: (w.workflowAgents ?? [])
           .sort((a: any, b: any) => (a.serial ?? 0) - (b.serial ?? 0))

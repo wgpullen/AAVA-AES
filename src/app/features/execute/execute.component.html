@@ -119,13 +119,70 @@
       </div>
     </div>
 
-    <!-- Right panel: Live pipeline progress -->
+    <!-- Right panel: Workflow preview / Live pipeline progress -->
     <div class="progress-panel">
       @if (!run()) {
-        <div class="aes-empty">
-          <mat-icon>play_circle_outline</mat-icon>
-          <p>Select a workflow and click Execute to watch your agents run in real time.</p>
-        </div>
+        @if (selectedWf) {
+          <!-- Workflow detail preview — shown after selecting a workflow, before execution -->
+          <div class="wf-preview aes-fade-in">
+
+            <div class="wf-preview-header">
+              <mat-icon class="wf-preview-icon">account_tree</mat-icon>
+              <div class="wf-preview-title">
+                <div class="wf-preview-name">{{ selectedWf.name }}</div>
+                <span class="aes-badge {{ selectedWf.status?.toLowerCase() }}">{{ selectedWf.status }}</span>
+              </div>
+            </div>
+
+            @if (selectedWf.description) {
+              <div class="wf-preview-desc">{{ selectedWf.description }}</div>
+            }
+
+            @if (selectedWf.createdAt) {
+              <div class="wf-preview-meta">
+                <mat-icon>calendar_today</mat-icon>
+                Created {{ selectedWf.createdAt | date:'MMM d, y' }}
+              </div>
+            }
+
+            <div class="wf-preview-section-title">
+              <mat-icon>smart_toy</mat-icon>
+              Agent Pipeline
+            </div>
+
+            @if (selectedWf.agentNames?.length) {
+              <div class="wf-preview-pipeline">
+                @for (name of selectedWf.agentNames; track name; let i = $index) {
+                  <div class="wf-preview-agent">
+                    <div class="wf-preview-agent-num">{{ i + 1 }}</div>
+                    <div class="wf-preview-agent-name">{{ name }}</div>
+                  </div>
+                  @if (i < selectedWf.agentNames!.length - 1) {
+                    <div class="wf-preview-agent-arrow">
+                      <mat-icon>arrow_downward</mat-icon>
+                    </div>
+                  }
+                }
+              </div>
+            } @else {
+              <div class="wf-preview-agents-unknown">
+                <mat-icon>info_outline</mat-icon>
+                <span>Agent names are not available from the AAVA list API. They will appear step-by-step as the workflow executes and will all be visible after it completes.</span>
+              </div>
+            }
+
+            <div class="wf-preview-cta">
+              <mat-icon>electric_bolt</mat-icon>
+              Ready to execute — click <strong>Execute Workflow</strong> to begin
+            </div>
+
+          </div>
+        } @else {
+          <div class="aes-empty">
+            <mat-icon>play_circle_outline</mat-icon>
+            <p>Select a workflow and click Execute to watch your agents run in real time.</p>
+          </div>
+        }
       } @else {
         <!-- Run header -->
         <div class="run-header">
