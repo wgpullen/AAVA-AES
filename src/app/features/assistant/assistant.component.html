@@ -54,9 +54,14 @@
             <mat-icon>send</mat-icon>
           }
         </button>
+        <button mat-icon-button class="clear-btn"
+                matTooltip="Clear chat history"
+                (click)="clearHistory()">
+          <mat-icon>delete_sweep</mat-icon>
+        </button>
       </div>
       <div class="input-hint">
-        Powered by AAVA Revelio · Knowledge current as of May 2026
+        Knowledge mode active · May 2026 · Chat history saved across sessions
       </div>
     </div>
 

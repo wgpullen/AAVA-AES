@@ -165,6 +165,15 @@
   mat-icon { font-size: 20px; }
 }
 
+.clear-btn {
+  height: 40px;
+  width: 40px;
+  flex-shrink: 0;
+  align-self: center;
+  color: var(--aes-text-muted);
+  &:hover { color: var(--aes-text); }
+}
+
 .input-hint {
   font-size: 10px;
   color: var(--aes-text-muted);
