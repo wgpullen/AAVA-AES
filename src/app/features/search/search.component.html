@@ -79,13 +79,21 @@
     @if (!cache.loading() && filtered.length === 0) {
       <div class="aes-empty">
         @if (!cache.isLoaded()) {
-          <!-- Cache finished loading but produced no data — fetch failed or timed out -->
+          <!-- All 5 fetch streams failed or timed out — loadedAt never set -->
           <mat-icon>error_outline</mat-icon>
           <p>Artifacts failed to load. This can happen on first load or after a network timeout.</p>
           <button mat-stroked-button class="retry-btn" (click)="reload()">
             <mat-icon>refresh</mat-icon> Retry
           </button>
+        } @else if (cache.allArtifacts().length === 0) {
+          <!-- Loaded successfully but AAVA returned 0 items across all types -->
+          <mat-icon>cloud_off</mat-icon>
+          <p>Cache loaded but returned no artifacts — AAVA may be slow or the realm has no data yet.</p>
+          <button mat-stroked-button class="retry-btn" (click)="reload()">
+            <mat-icon>refresh</mat-icon> Reload Artifacts
+          </button>
         } @else {
+          <!-- Cache has data but the current search/filter produced 0 results -->
           <mat-icon>search_off</mat-icon>
           <p>No artifacts found. Try adjusting your search or filters.</p>
         }

@@ -29,6 +29,7 @@ export class ArtifactCacheService {
     this.allArtifacts.set([]);
     this.rawWorkflows.set([]);
     this.rawAgents.set([]);
+    this.loadedAt.set(null); // reset so retry properly clears "loaded" state
 
     // Count in-flight streams; clear loading when all 5 have settled (success or timeout)
     let pending = 5;
