@@ -269,11 +269,13 @@ export class ExecuteComponent implements OnInit, OnDestroy {
       if (!res) return;
       console.log('[AES POLL result]', res);
 
+      // pipeLineAgents alone is NOT a reliable completion signal — AAVA may return
+      // partial results (e.g. 1 agent done) before the workflow finishes. Only trigger
+      // completion when actual task outputs or a final output string are present.
       const hasOutput = !!(
         res?.output ||
         res?.tasksOutputs?.length ||
-        res?.result?.response ||
-        res?.pipeLineAgents?.length
+        res?.result?.response
       );
 
       if (hasOutput) {

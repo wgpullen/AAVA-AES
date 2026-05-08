@@ -140,15 +140,23 @@
                 <span class="aes-badge {{ run()!.status.toLowerCase() }}">{{ run()!.status }}</span>
                 <span class="run-time">{{ elapsedTime() }}</span>
                 <span class="run-agent-count">
-                  {{ completedAgentCount() }} / {{ agents().length }} agents
+                  @if (isRunning() && agents().length <= 1) {
+                    Multi-agent pipeline…
+                  } @else {
+                    {{ completedAgentCount() }} / {{ agents().length }} agents
+                  }
                 </span>
               </div>
             </div>
           </div>
           <div class="overall-progress">
-            <div class="progress-pct">{{ overallProgress() }}%</div>
-            <mat-progress-bar mode="determinate" [value]="overallProgress()"
-                              [class.completed]="run()!.status === ExecutionStatus.COMPLETED" />
+            @if (!isRunning() || agents().length > 1) {
+              <div class="progress-pct">{{ overallProgress() }}%</div>
+            }
+            <mat-progress-bar
+              [mode]="isRunning() && agents().length <= 1 ? 'indeterminate' : 'determinate'"
+              [value]="overallProgress()"
+              [class.completed]="run()!.status === ExecutionStatus.COMPLETED" />
           </div>
         </div>
 
@@ -172,7 +180,7 @@
 
                 @if (agent.status === 'running') {
                   <mat-progress-bar mode="indeterminate" class="agent-progress" />
-                  <div class="agent-running-label">Processing… watching for completion</div>
+                  <div class="agent-running-label">Processing — this step may take several minutes</div>
                 }
 
                 @if (agent.status === 'done' && agent.completedAt) {
@@ -201,7 +209,15 @@
             </div>
           }
 
-          <!-- "Up next" hint — name of next locked agent -->
+          <!-- Pipeline-in-progress banner — shows when we don't yet know total agent count -->
+          @if (isRunning()) {
+            <div class="pipeline-running-note aes-fade-in">
+              <mat-icon>account_tree</mat-icon>
+              <span>Sequential pipeline in progress · each agent card unlocks when the previous step completes · large workflows can take 5–30+ minutes — do not cancel</span>
+            </div>
+          }
+
+          <!-- "Up next" hint — name of next locked agent (only when names are known) -->
           @if (nextAgentName() && isRunning()) {
             <div class="next-agent-hint">
               <div class="next-agent-line"></div>

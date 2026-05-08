@@ -453,6 +453,30 @@
   overflow-y: auto;
 }
 
+// ── Pipeline-in-progress note ─────────────────────────
+.pipeline-running-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  margin-top: 8px;
+  background: color-mix(in srgb, var(--aes-accent) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aes-accent) 22%, transparent);
+  border-radius: var(--aes-radius-sm);
+  font-size: 12px;
+  color: var(--aes-text-secondary);
+  line-height: 1.5;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: var(--aes-accent);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+}
+
 // ── Up-next hint ──────────────────────────────────────
 .next-agent-hint {
   display: flex;
