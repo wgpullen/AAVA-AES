@@ -154,7 +154,9 @@
                 @if (list.createdAt) {
                   <span class="list-date">{{ list.createdAt | date:'MMM d, y' }}</span>
                 }
-                <span class="list-count">{{ list.artifacts?.length ?? list.itemCount ?? 0 }} items</span>
+                @if ((list.artifacts?.length ?? list.itemCount) != null) {
+                  <span class="list-count">{{ list.artifacts?.length ?? list.itemCount }} items</span>
+                }
               </div>
               <mat-icon class="expand-icon">{{ expandedList() === list.id ? 'expand_less' : 'expand_more' }}</mat-icon>
             </div>

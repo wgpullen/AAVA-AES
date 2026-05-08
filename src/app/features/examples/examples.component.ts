@@ -35,7 +35,7 @@ interface AdminList {
   description?: string;
   createdAt?: string;
   artifacts?: { id: number; type: string; name: string; status?: string }[];
-  itemCount?: number;
+  itemCount?: number | null;
 }
 
 @Component({
@@ -104,15 +104,27 @@ export class ExamplesComponent implements OnInit {
       results.forEach((res, idx) => {
         if (!res) return;
         const realmId = realmIds[idx];
-        const raw: any[] = res?.data ?? res?.workflowExecutionDetails ?? res?.executions ?? (Array.isArray(res) ? res : []);
+        // API returns workflowExecutionResponseList (not workflowExecutionDetails/executions)
+        const raw: any[] =
+          res?.workflowExecutionResponseList ??
+          res?.data ??
+          res?.workflowExecutionDetails ??
+          res?.executions ??
+          (Array.isArray(res) ? res : []);
         raw.forEach((e: any) => {
-          const status = e.executionStatus ?? e.status ?? 'UNKNOWN';
-          const startedAt = new Date(e.startTime ?? e.createdAt ?? Date.now());
-          const completedAt = e.endTime ? new Date(e.endTime) : undefined;
+          // Normalize "SUCCESS" → "COMPLETED" to match filter tab labels
+          const rawStatus = e.executionStatus ?? e.status ?? 'UNKNOWN';
+          const status = rawStatus === 'SUCCESS' ? 'COMPLETED' : rawStatus;
+          // API uses createdAt/modifiedAt; fallback to startTime/endTime for older responses
+          const startedAt = new Date(e.createdAt ?? e.startTime ?? Date.now());
+          const completedAt = e.modifiedAt
+            ? new Date(e.modifiedAt)
+            : (e.endTime ? new Date(e.endTime) : undefined);
           allRuns.push({
-            id: e.workflowExecutionId ?? e.id ?? String(Math.random()),
+            // Use UUID executionId for result/rerun lookups; fall back to numeric id
+            id: e.executionId ?? e.workflowExecutionId ?? String(e.id ?? Math.random()),
             workflowName: e.workflowName ?? e.pipelineName ?? 'Workflow Run',
-            workflowId: e.workflowId ?? e.pipelineId ?? 0,
+            workflowId: e.pipelineId ?? e.workflowId ?? 0,
             startedAt,
             completedAt,
             status,
@@ -207,8 +219,10 @@ export class ExamplesComponent implements OnInit {
         name: l.name ?? l.listName ?? 'Unnamed List',
         description: l.description ?? '',
         createdAt: l.createdAt,
-        artifacts: l.artifacts ?? l.items ?? [],
-        itemCount: l.itemCount ?? l.artifactCount ?? (l.artifacts ?? l.items ?? []).length,
+        // Keep undefined (not []) when API doesn't return artifacts — lets template hide count
+        artifacts: l.artifacts ?? l.items ?? undefined,
+        // null = unknown (API only returns list metadata, not artifact arrays)
+        itemCount: l.itemCount ?? l.artifactCount ?? null,
       })));
     });
   }

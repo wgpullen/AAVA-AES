@@ -1,9 +1,11 @@
 {
   "/aava-api": {
     "target": "https://int-ai.aava.ai",
-    "secure": true,
+    "secure": false,
     "changeOrigin": true,
     "pathRewrite": { "^/aava-api": "" },
+    "timeout": 120000,
+    "proxyTimeout": 120000,
     "logLevel": "debug",
     "headers": {
       "Accept": "application/json"
