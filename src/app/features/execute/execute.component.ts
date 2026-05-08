@@ -12,6 +12,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { CommonModule } from '@angular/common';
 import { catchError, interval, of, Subject, Subscription, switchMap, takeUntil, takeWhile } from 'rxjs';
 import { AavaApiService } from '../../core/services/aava-api.service';
+import { ArtifactCacheService } from '../../core/services/artifact-cache.service';
 import { ExecutionService } from '../../core/services/execution.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { AgentProgress, ExecutionStatus } from '../../core/models/execution.models';
@@ -22,7 +23,6 @@ interface WorkflowOption {
   status?: string;
   agentCount?: number;
   agentNames?: string[];
-  detailsLoaded?: boolean;
 }
 
 const STATUS_ORDER: Record<AgentProgress['status'], number> = {
@@ -51,6 +51,7 @@ function mapStatus(raw: string): AgentProgress['status'] {
 })
 export class ExecuteComponent implements OnInit, OnDestroy {
   private api     = inject(AavaApiService);
+  private cache   = inject(ArtifactCacheService);
   private execSvc = inject(ExecutionService);
   private notify  = inject(NotificationService);
   private route   = inject(ActivatedRoute);
@@ -64,28 +65,34 @@ export class ExecuteComponent implements OnInit, OnDestroy {
   inputText        = '';
   selectedFile: File | null = null;
   loadingWorkflows = signal(false);
-  loadingDetails   = signal(false);
   showResults      = signal(false);
   executionResult  = signal<any>(null);
 
-  private pollSub?:     Subscription;
-  private logsPollSub?: Subscription;
-  private sseSub?:      Subscription;
-  private tickSub?:     Subscription;
-  private trackDone$  = new Subject<void>();
+  private pollSub?:       Subscription;
+  private logsPollSub?:   Subscription;
+  private sseSub?:        Subscription;
+  private resultPollSub?: Subscription;  // L4: primary completion detection
+  private tickSub?:       Subscription;
+  private trackDone$    = new Subject<void>();
 
   private tick = signal(0);
   ExecutionStatus = ExecutionStatus;
 
   ngOnInit(): void {
-    this.loadWorkflows();
+    // Use ArtifactCacheService if already warm — avoids redundant API call on navigation
+    if (this.cache.isLoaded() && this.cache.rawWorkflows().length > 0) {
+      this.buildWorkflowList(this.cache.rawWorkflows());
+    } else {
+      this.loadWorkflows();
+    }
+
     this.route.queryParams.subscribe(p => {
       if (p['workflowId']) {
         this.selectedWorkflow = Number(p['workflowId']);
-        this.onWorkflowChange();
       }
       if (p['input']) this.inputText = p['input'];
     });
+
     this.tickSub = interval(1000).subscribe(() => this.tick.update(t => t + 1));
   }
 
@@ -101,82 +108,47 @@ export class ExecuteComponent implements OnInit, OnDestroy {
       catchError(() => of({ workFlowDetails: [], totalNoOfRecords: 0 }))
     ).subscribe(res => {
       this.loadingWorkflows.set(false);
-      const all = (res.workFlowDetails ?? [])
-        .map((w: any) => ({
-          id: w.id,
-          name: w.name,
-          status: w.status,
-          agentCount: w.workflowAgents?.length ?? 0,
-          agentNames: (w.workflowAgents ?? [])
-            .sort((a: any, b: any) => (a.serial ?? 0) - (b.serial ?? 0))
-            .map((wa: any) => wa.agent?.name ?? wa.agentName ?? null)
-            .filter(Boolean),
-          detailsLoaded: false,
-        }))
-        .sort((a: any, b: any) => {
-          if (a.status === 'APPROVED' && b.status !== 'APPROVED') return -1;
-          if (b.status === 'APPROVED' && a.status !== 'APPROVED') return 1;
-          return a.name.localeCompare(b.name);
-        });
-      this.workflows.set(all);
+      this.buildWorkflowList(res.workFlowDetails ?? []);
     });
   }
 
-  /** Fetches full workflow details for accurate agent list.
-   *  Blocks Execute button until complete (eliminates race condition). */
-  onWorkflowChange(): void {
-    if (!this.selectedWorkflow) return;
-    const wf = this.selectedWf;
-    if (wf?.detailsLoaded) return;
-
-    this.loadingDetails.set(true);
-    this.api.getWorkflowDetails(this.selectedWorkflow).pipe(
-      catchError(() => of(null))
-    ).subscribe((detail: any) => {
-      this.loadingDetails.set(false);
-      if (!detail) return;
-
-      console.log('[AES WF detail]', detail);
-
-      // AAVA uses multiple field names across API versions — try all
-      const rawAgents: any[] =
-        detail?.workflowAgents    ??
-        detail?.agents            ??
-        detail?.workflowAgentList ??
-        detail?.pipelineAgents    ??
-        detail?.pipeline?.agents  ??
-        detail?.agentList         ??
-        [];
-
-      const sorted = [...rawAgents].sort(
-        (a: any, b: any) => (a.serial ?? a.serialNo ?? 0) - (b.serial ?? b.serialNo ?? 0)
-      );
-
-      const agentNames: string[] = sorted
-        .map((wa: any) => wa.agent?.name ?? wa.agentName ?? wa.name ?? null)
-        .filter(Boolean);
-
-      const agentCount = sorted.length
-        || (detail?.agentCount ?? detail?.totalAgents ?? wf?.agentCount ?? 0);
-
-      console.log('[AES WF detail] resolved agents:', agentCount, agentNames);
-
-      this.workflows.update(wfs => wfs.map(w =>
-        w.id === this.selectedWorkflow
-          ? { ...w, agentCount, agentNames, detailsLoaded: true }
-          : w
-      ));
-    });
+  /**
+   * Maps raw workflow objects → WorkflowOption[], sorts APPROVED first.
+   * Used by both loadWorkflows() (API) and the cache path (ngOnInit).
+   * GET /workflows/{id} returns 405 on this AAVA version (only PUT/DELETE supported),
+   * so all data comes from the list endpoint — agent names are used when available.
+   */
+  private buildWorkflowList(raw: any[]): void {
+    const all = raw
+      .map((w: any) => ({
+        id: w.id,
+        name: w.name,
+        status: w.status,
+        agentCount: w.workflowAgents?.length ?? 0,
+        agentNames: (w.workflowAgents ?? [])
+          .sort((a: any, b: any) => (a.serial ?? 0) - (b.serial ?? 0))
+          .map((wa: any) => wa.agent?.name ?? wa.agentName ?? null)
+          .filter(Boolean) as string[],
+      }))
+      .sort((a: any, b: any) => {
+        if (a.status === 'APPROVED' && b.status !== 'APPROVED') return -1;
+        if (b.status === 'APPROVED' && a.status !== 'APPROVED') return 1;
+        return a.name.localeCompare(b.name);
+      });
+    this.workflows.set(all);
   }
+
+  // GET /workflows/{id} returns 405 — no per-workflow detail fetch needed.
+  // All data comes from the list endpoint; canRun is true as soon as a workflow is selected.
+  onWorkflowChange(): void {}
 
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     this.selectedFile = input.files?.[0] ?? null;
   }
 
-  /** Execute blocked until detail fetch completes — eliminates agent-count race condition */
   get canRun(): boolean {
-    return !!this.selectedWorkflow && !this.isRunning() && !this.loadingDetails();
+    return !!this.selectedWorkflow && !this.isRunning();
   }
 
   get selectedWf(): WorkflowOption | undefined {
@@ -189,6 +161,7 @@ export class ExecuteComponent implements OnInit, OnDestroy {
 
     const wf         = this.selectedWf;
     const agentNames = wf?.agentNames ?? [];
+    // Default to 1 placeholder when agent count is unknown — real names load from result
     const agentCount = agentNames.length || wf?.agentCount || 1;
 
     this.execSvc.startRunWithNames(wfId, wf?.name ?? 'Workflow', agentCount, agentNames);
@@ -228,25 +201,34 @@ export class ExecuteComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Three-layer real-time tracking:
-   *   L1 SSE  — real-time agent events (most granular, when available)
-   *   L2 Logs — AgentActivityLogs poll every 5s (reliable per-agent data)
-   *   L3 Status — overall status poll every 3s (triggers result fetch on COMPLETED)
+   * Four-layer tracking strategy:
+   *
+   *   L1 SSE    — real-time agent events via fetch/ReadableStream (when available)
+   *   L2 Logs   — AgentActivityLogs poll every 5s (per-agent status)
+   *   L3 Status — overall execution status poll every 3s
+   *   L4 Result — /result poll every 12s (PRIMARY on this AAVA version:
+   *               SSE and status-poll both return 500; only /result returns 200)
+   *
+   * L1–L3 are kept in place and will work automatically if AAVA fixes those endpoints.
+   * L4 is the guaranteed completion path available today.
    */
   private startTracking(execId: string): void {
     this.trackDone$.next(); // cancel any previous tracking
 
-    // L1: SSE stream — real-time agent events
+    // Give immediate visual feedback — agent[0] is running as soon as trigger succeeds
+    this.execSvc.updateAgentProgress(0, { status: 'running', startedAt: new Date() });
+
+    // L1: SSE stream — real-time per-agent events
     this.sseSub = this.execSvc.streamExecution(execId).subscribe({
       next: event => {
         console.log('[AES SSE]', event);
         this.execSvc.applyEvent(event);
       },
-      error: err => console.warn('[AES SSE] stream unavailable (logs+status polling active):', err),
+      error: err => console.warn('[AES SSE] unavailable (L2–L4 active):', err),
       complete: () => console.log('[AES SSE] stream closed'),
     });
 
-    // L2: Logs poll — GET /workflows/workflow-executions/{id}/logs → AgentActivityLogs
+    // L2: Logs poll — AgentActivityLogs every 5s
     this.logsPollSub = interval(5000).pipe(
       switchMap(() => this.api.getExecutionLogs(execId).pipe(catchError(() => of(null)))),
       takeUntil(this.trackDone$),
@@ -254,7 +236,7 @@ export class ExecuteComponent implements OnInit, OnDestroy {
       if (res) this.applyLogsResponse(res);
     });
 
-    // L3: Status poll — GET /workflows/workflow-executions/{id} → overall status
+    // L3: Status poll — overall execution status every 3s
     this.pollSub = interval(3000).pipe(
       switchMap(() => this.api.getExecutionStatus(execId).pipe(catchError(() => of(null)))),
       takeWhile((res: any) => {
@@ -277,13 +259,35 @@ export class ExecuteComponent implements OnInit, OnDestroy {
         this.notify.error('Workflow execution failed');
       }
     });
+
+    // L4: Result poll — primary completion detection on this AAVA version.
+    // Polls /result every 12s; when output data is present the workflow has finished.
+    this.resultPollSub = interval(12_000).pipe(
+      switchMap(() => this.api.getExecutionResult(execId).pipe(catchError(() => of(null)))),
+      takeUntil(this.trackDone$),
+    ).subscribe((res: any) => {
+      if (!res) return;
+      console.log('[AES POLL result]', res);
+
+      const hasOutput = !!(
+        res?.output ||
+        res?.tasksOutputs?.length ||
+        res?.result?.response ||
+        res?.pipeLineAgents?.length
+      );
+
+      if (hasOutput) {
+        console.log('[AES POLL result] output detected — marking complete');
+        this.stopTracking();
+        this.parseAndCompleteRun(res);
+      }
+    });
   }
 
   /** Parses AgentActivityLogs from the logs endpoint — per-agent status with real timestamps */
   private applyLogsResponse(raw: any): void {
     console.log('[AES POLL logs]', raw);
 
-    // AAVA may use PascalCase or camelCase for this field
     const logs: any[] =
       raw?.AgentActivityLogs ??
       raw?.agentActivityLogs ??
@@ -325,7 +329,6 @@ export class ExecuteComponent implements OnInit, OnDestroy {
         this.applyAgentPatch(idx, newStatus, task);
       });
     } else {
-      // No per-agent data — minimum: start agent[0] when execution is confirmed RUNNING
       const overallSt = (res?.status ?? res?.executionStatus ?? '').toUpperCase();
       if (overallSt === 'RUNNING') {
         const allPending = this.agents().every(a => a.status === 'pending');
@@ -336,12 +339,11 @@ export class ExecuteComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Shared patch logic — applies a status update to a single agent, never rolling backward */
+  /** Applies a status patch to a single agent — monotonic: never rolls backward */
   private applyAgentPatch(idx: number, newStatus: AgentProgress['status'], source: any): void {
     const current = this.agents()[idx];
     if (!current || newStatus === 'pending') return;
 
-    // Monotonic: never go from done → running, done → pending, etc.
     if (STATUS_ORDER[newStatus] < STATUS_ORDER[current.status]) return;
 
     const patch: Partial<AgentProgress> = {};
@@ -384,18 +386,30 @@ export class ExecuteComponent implements OnInit, OnDestroy {
       const agentList = parsed?.pipeLineAgents ?? [];
       const progress  = this.agents();
 
+      // Expand agent array if result has more agents than expected (common when count was unknown)
+      if (tasks.length > progress.length) {
+        const extra = tasks.length - progress.length;
+        for (let i = 0; i < extra; i++) {
+          this.execSvc.updateAgentProgress(progress.length + i, {
+            index: progress.length + i,
+            name: agentList[progress.length + i]?.agent?.name ?? `Agent ${progress.length + i + 1}`,
+            status: 'pending',
+          } as any);
+        }
+      }
+
       tasks.forEach((task: any, i: number) => {
-        const idx = Math.min(i, progress.length - 1);
+        const idx = Math.min(i, this.agents().length - 1);
         this.execSvc.updateAgentProgress(idx, {
-          status: 'done',
+          status:      'done',
           output:      task?.raw ?? task?.output ?? '',
-          name:        agentList[i]?.agent?.name ?? progress[idx]?.name,
-          completedAt: progress[idx]?.completedAt ?? new Date(),
-          startedAt:   progress[idx]?.startedAt   ?? new Date(),
+          name:        agentList[i]?.agent?.name ?? this.agents()[idx]?.name,
+          completedAt: this.agents()[idx]?.completedAt ?? new Date(),
+          startedAt:   this.agents()[idx]?.startedAt   ?? new Date(),
         });
       });
 
-      // Flush anything that didn't get a terminal event
+      // Flush any agents that didn't receive a terminal event
       this.agents().forEach((a, i) => {
         if (a.status !== 'done' && a.status !== 'error') {
           this.execSvc.updateAgentProgress(i, { status: 'done', completedAt: new Date() });
@@ -417,6 +431,7 @@ export class ExecuteComponent implements OnInit, OnDestroy {
     this.pollSub?.unsubscribe();
     this.logsPollSub?.unsubscribe();
     this.sseSub?.unsubscribe();
+    this.resultPollSub?.unsubscribe();
   }
 
   reset(): void {
@@ -436,8 +451,8 @@ export class ExecuteComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Sequential unlock: show completed agents + the current one (completed+1).
-   * Agent N+1 card only appears in the DOM once agent N reaches 'done' or 'error'.
+   * Sequential unlock: completed agents + the next one.
+   * Agent N+1 card only appears after agent N reaches 'done' or 'error'.
    */
   visibleAgents = computed(() => {
     const all = this.agents();
@@ -445,7 +460,6 @@ export class ExecuteComponent implements OnInit, OnDestroy {
     return all.slice(0, Math.min(this.completedAgentCount() + 1, all.length));
   });
 
-  /** Name of the next agent not yet visible — shown as "up next" hint */
   nextAgentName = computed(() => {
     const all     = this.agents();
     const visible = this.visibleAgents();
@@ -458,7 +472,7 @@ export class ExecuteComponent implements OnInit, OnDestroy {
   );
 
   overallProgress = computed(() => {
-    const a    = this.agents();
+    const a = this.agents();
     if (!a.length) return 0;
     const done    = this.completedAgentCount();
     const running = a.filter(x => x.status === 'running').length;
@@ -466,7 +480,7 @@ export class ExecuteComponent implements OnInit, OnDestroy {
   });
 
   elapsedTime = computed(() => {
-    this.tick(); // re-evaluates every second
+    this.tick();
     const r = this.run();
     if (!r?.startedAt) return '';
     const ms = (r.completedAt ? r.completedAt.getTime() : Date.now()) - r.startedAt.getTime();
