@@ -30,6 +30,9 @@ export class DashboardComponent {
   readonly auth     = inject(AuthService);
 
   readonly favorites = inject(ProjectsService).favorites;
+  // Alias so the template can call loading() — required because Angular's incremental
+  // template compiler caches bindings and will error if the property disappears mid-session.
+  readonly loading   = this.cache.loading;
 
   // Stats are pure derived state — computed() re-evaluates whenever the cache updates.
   // No effect(), no signal writes, no allowSignalWrites needed.
